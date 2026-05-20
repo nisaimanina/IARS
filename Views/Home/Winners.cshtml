@@ -1,0 +1,225 @@
+@model IEnumerable<IARS.Models.KaizenProposal>
+
+@{
+    Layout = null;
+    ViewData["Title"] = "Best of Month - Kaizen Committee";
+    var userName  = Context.Session.GetString("UserName") ?? "Admin";
+    var role      = (Context.Session.GetString("UserRole") ?? "KaizenCommittee").ToUpper();
+    var initial   = userName.Length > 0 ? userName[0].ToString().ToUpper() : "K";
+    var released  = Model.Where(p => p.Status == "Released").ToList();
+    var roleLabel = role switch {
+        "KAIZENCOMMITTEE" => "Kaizen Committee",
+        "HOD"             => "Head of Department",
+        "FINALAPPROVER"   => "Approver",
+        "REVIEWER"        => "Reviewer",
+        "ADMIN"           => "Administrator",
+        _                 => "Employee"
+    };
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Best of Month — IARS</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+        :root{--red:#ED1C24;--dark:#0e1118;--tx:#1a1d2e;--muted:#7c8db5;--bg:#f4f6fa;--border:#e4e9f4;--gold:#f59e0b;}
+        body{font-family:'Inter',sans-serif;background:var(--bg);overflow:hidden;height:100vh;display:flex;}
+        
+        /* SIDEBAR */
+        #sb{width:300px;min-height:100vh;background:var(--dark);display:flex;flex-direction:column;flex-shrink:0;transition:all .3s;position:relative;z-index:100;}
+        #sb.collapsed{width:80px;}
+        #sbToggle{position:absolute;top:35px;right:-16px;width:32px;height:32px;background:var(--red);border:none;border-radius:50%;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:200;box-shadow:0 4px 14px rgba(237,28,36,.4);}
+        .sb-brand{display:flex;flex-direction:column;align-items:center;padding:32px 18px 24px;border-bottom:1px solid rgba(255,255,255,0.05);text-decoration:none;overflow:hidden;}
+        .logo-box{background:white;border-radius:14px;padding:12px 16px;width:100%;max-width:180px;box-shadow:0 6px 16px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;}
+        .logo-box img{width:100%;max-width:150px;object-fit:contain;}
+        .brand-label{margin-top:14px;text-align:center;}
+        .brand-label .bn { color:white; font-weight:900; font-size:1.15rem; letter-spacing:-0.2px; white-space:nowrap; }
+        .brand-label .bt{color:rgba(255,255,255,0.32);font-size:.75rem;letter-spacing:1px;text-transform:uppercase;margin-top:4px;white-space:nowrap;}
+        #sb.collapsed .sb-brand{display:none;}
+        .sb-sec{padding:24px 22px 8px;font-size:.72rem;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.2);white-space:nowrap;}
+        #sb.collapsed .sb-sec{opacity:0;height:28px;padding:0;}
+        .sb-nav{list-style:none;padding:4px 12px;flex-grow:1;}
+        .sb-nav a{display:flex;align-items:center;gap:16px;padding:12px 16px;color:rgba(255,255,255,0.48);text-decoration:none;border-radius:12px;margin-bottom:6px;transition:all .3s;white-space:nowrap;overflow:hidden;font-size:1.05rem;font-weight:600;}
+        .sb-nav a:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.88);}
+        .sb-nav a.on{background:var(--red);color:white;}
+        .sb-nav a i{font-size:1.3rem;flex-shrink:0;width:24px;text-align:center;}
+        .sb-nav .lbl{overflow:hidden;white-space:nowrap;}
+        #sb.collapsed .sb-nav .lbl{display:none;}
+        .sb-foot{padding:14px 12px;border-top:1px solid rgba(255,255,255,0.05);}
+        .sb-foot a{display:flex;align-items:center;gap:16px;padding:12px 16px;border-radius:12px;color:rgba(255,255,255,0.38);text-decoration:none;font-size:1.05rem;font-weight:600;transition:all .3s;white-space:nowrap;overflow:hidden;}
+        .sb-foot a:hover{background:rgba(237,28,36,0.14);color:var(--red);}
+        .sb-foot a i{font-size:1.3rem;flex-shrink:0;width:24px;text-align:center;}
+        #sb.collapsed .sb-foot .lbl{display:none;}
+        
+        #main{flex-grow:1;display:flex;flex-direction:column;overflow:hidden;}
+        .topbar{height:100px;background:white;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 36px;flex-shrink:0;}
+        .tb-left{display:flex;flex-direction:column;justify-content:center;}
+        .tb-left .sysname{font-size:0.75rem;color:var(--red);font-weight:800;letter-spacing:0.8px;margin:0 0 4px 0;text-transform:uppercase;}
+        .tb-left .ptitle{font-size:1.55rem;font-weight:900;color:var(--tx);letter-spacing:-0.4px;margin:0;}
+        .tb-right{display:flex;align-items:center;justify-content:flex-end;gap:16px;}
+        .user-chip{display:flex;align-items:center;gap:14px;background:#f7f8fc;border:1.5px solid var(--border);border-radius:14px;padding:6px 18px 6px 8px;}
+        .u-avatar{width:46px;height:46px;background:#2563eb;color:white;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1.15rem; letter-spacing:-0.5px; flex-shrink:0;}
+        .u-info { text-align:left; }
+        .u-info .uname { font-weight:800; font-size:1rem; color:var(--tx); line-height:1.2; }
+        .u-info .urole { font-size:0.8rem; color:var(--muted); font-weight:600; }
+        
+        .ca{flex-grow:1;overflow-y:auto;padding:32px 36px;}
+        
+        .winner-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(340px, 1fr));gap:24px;}
+        .winner-card{background:white;border-radius:24px;border:1px solid var(--border);padding:32px;position:relative;transition:all .3s;overflow:hidden;}
+        .winner-card:hover{transform:translateY(-5px);box-shadow:0 12px 30px rgba(0,0,0,0.06);}
+        .winner-card.is-best{border:2px solid var(--gold);background:linear-gradient(to bottom right, #ffffff, #fffdfa);}
+        .best-label{position:absolute;top:20px;right:20px;background:var(--gold);color:white;padding:6px 14px;border-radius:12px;font-size:0.75rem;font-weight:900;text-transform:uppercase;display:flex;align-items:center;gap:6px;}
+        
+        .wc-meta{font-size:0.8rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;display:block;}
+        .wc-title{font-size:1.4rem;font-weight:900;color:var(--tx);line-height:1.2;margin-bottom:16px;}
+        .wc-user{display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-top:20px;border-top:1px solid var(--border);}
+        .wc-avatar{width:40px;height:40px;background:#f3f4f6;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--tx);}
+        .wc-name{font-weight:800;color:var(--tx);font-size:0.95rem;}
+        .wc-dept{font-size:0.8rem;color:var(--muted);}
+        
+        .btn-star{width:100%;padding:14px;border-radius:14px;font-weight:800;font-size:0.95rem;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;transition:all .2s;font-family:inherit;border:none;}
+        .btn-star.pick{background:var(--bg);color:var(--tx);border:1.5px solid var(--border);}
+        .btn-star.pick:hover{background:#fef3c7;border-color:var(--gold);color:var(--gold);}
+        .btn-star.unpick{background:#fef3c7;color:var(--gold);border:1.5px solid var(--gold);}
+        .btn-star.unpick:hover{background:#fff1f2;border-color:#ef4444;color:#ef4444;}
+        
+        .empty-state{text-align:center;padding:100px;background:white;border-radius:24px;border:1px solid var(--border);}
+        .empty-state i{font-size:4rem;color:var(--border);margin-bottom:20px;display:block;}
+        
+        .toast-msg{position:fixed;top:24px;right:24px;z-index:9999;min-width:320px;border-radius:14px;padding:16px 22px;font-weight:700;font-size:.95rem;display:flex;align-items:center;gap:12px;box-shadow:0 8px 30px rgba(0,0,0,.12);animation:slideIn .3s ease;}
+        @@keyframes slideIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+    </style>
+</head>
+<body>
+
+@if (TempData["Success"] != null)
+{
+    <div class="toast-msg" style="background:#ecfdf5;color:#059669;border:1.5px solid #a7f3d0;" id="toastMsg">
+        <i class="bi bi-check-circle-fill" style="font-size:1.3rem;"></i> @TempData["Success"]
+    </div>
+}
+
+<nav id="sb">
+    <button id="sbToggle" onclick="toggle()"><i class="bi bi-chevron-left ti"></i></button>
+    <a href="/" class="sb-brand">
+        <div class="logo-box"><img src="/images/logo_isuzu.png" alt="Isuzu" asp-append-version="true" /></div>
+        <div class="brand-label">
+            <div class="bn">Kaizen System</div>
+            <div class="bt">Continuous Improvement</div>
+        </div>
+    </a>
+    <ul class="sb-nav">
+        <div class="sb-sec" style="margin-top:10px;">Menu</div>
+        <li><a asp-controller="Home" asp-action="Index" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Index" && ViewContext.RouteData.Values["Controller"]?.ToString() == "Home" ? "on" : "")"><i class="bi bi-grid-1x2-fill"></i><span class="lbl">Dashboard</span></a></li>
+        <li><a asp-controller="Home" asp-action="AllProposals" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AllProposals" ? "on" : "")"><i class="bi bi-list-ul"></i><span class="lbl">All Proposals</span></a></li>
+        <li><a asp-controller="Home" asp-action="Winners" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Winners" ? "on" : "")"><i class="bi bi-trophy-fill"></i><span class="lbl">Best of Month</span></a></li>
+        <li><a asp-controller="Home" asp-action="ProposalHistory" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "ProposalHistory" ? "on" : "")"><i class="bi bi-clock-history"></i><span class="lbl">Proposals History</span></a></li>
+        
+        <li><a asp-controller="Kaizen" asp-action="Create"><i class="bi bi-plus-circle-fill"></i><span class="lbl">Kaizen Generator</span></a></li>
+        <li><a asp-controller="Kaizen" asp-action="Index"><i class="bi bi-clock-history"></i><span class="lbl">My Proposals</span></a></li>
+
+        <li><a asp-controller="Home" asp-action="Profile" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Profile" ? "on" : "")"><i class="bi bi-person-fill"></i><span class="lbl">My Profile</span></a></li>
+    </ul>
+    <div class="sb-foot">
+        <a asp-controller="Home" asp-action="Logout"><i class="bi bi-box-arrow-left"></i><span class="lbl">Sign Out</span></a>
+    </div>
+</nav>
+
+<div id="main">
+    <div class="topbar">
+        <div class="tb-left">
+            <div class="sysname">Intelligent Analysis &amp; Reporting System</div>
+            <div class="ptitle">Best of Month 🏆</div>
+            <div style="font-size:0.9rem;color:var(--muted);font-weight:500;margin-top:2px;">Select and showcase the most outstanding Kaizen proposals.</div>
+        </div>
+        <div class="tb-right">
+            <div class="user-chip">
+                <div class="u-avatar">@initial</div>
+                <div class="u-info">
+                    <div class="uname">@userName</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ca">
+        @if (released.Any())
+        {
+            <div class="winner-grid">
+                @foreach (var p in released)
+                {
+                    <div class="winner-card @(p.IsWinner ? "is-best" : "")">
+                        @if (p.IsWinner)
+                        {
+                            <div class="best-label"><i class="bi bi-star-fill"></i> Best of Month</div>
+                        }
+                        
+                        <span class="wc-meta">P@(p.Id.ToString("D3")) &bull; @p.CreatedAt.ToString("MMM yyyy")</span>
+                        <div class="wc-title">@p.Title</div>
+                        
+                        <div class="wc-user">
+                            <div class="wc-avatar">@(p.Employee?.Name?[0].ToString().ToUpper() ?? "U")</div>
+                            <div>
+                                <div class="wc-name">@(p.Employee?.Name ?? "Unknown")</div>
+                                <div class="wc-dept">@(p.Employee?.Department ?? "General")</div>
+                            </div>
+                        </div>
+                        
+                        <form asp-controller="Kaizen" asp-action="MarkWinner" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@p.Id" />
+                            <input type="hidden" name="source" value="Winners" />
+                            @if (p.IsWinner)
+                            {
+                                <button type="submit" class="btn-star unpick">
+                                    <i class="bi bi-star-fill"></i> Remove from Best
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="submit" class="btn-star pick">
+                                    <i class="bi bi-star"></i> Mark as Best
+                                </button>
+                            }
+                        </form>
+                        
+                        <a asp-controller="Kaizen" asp-action="Details" asp-route-id="@p.Id" class="btn-sm-act btn-view-sm mt-3 w-100" style="justify-content:center; padding:12px; border-radius:12px;" target="_blank">
+                            <i class="bi bi-eye"></i> View Full Proposal
+                        </a>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <i class="bi bi-trophy"></i>
+                <h3>No Released Proposals Yet</h3>
+                <p>Proposals must be Approved and Released before they can be selected as Best of Month.</p>
+                <a asp-action="AllProposals" class="btn btn-primary mt-3" style="background:var(--red); border:none; padding:12px 24px; border-radius:12px; font-weight:800;">Manage All Proposals</a>
+            </div>
+        }
+    </div>
+</div>
+
+<script>
+    function toggle() {
+        const sb = document.getElementById('sb');
+        sb.classList.toggle('collapsed');
+        localStorage.setItem('sbCol', sb.classList.contains('collapsed'));
+    }
+    window.addEventListener('DOMContentLoaded', () => {
+        if (localStorage.getItem('sbCol') === 'true') document.getElementById('sb').classList.add('collapsed');
+        const t = document.getElementById('toastMsg');
+        if (t) setTimeout(() => t.style.opacity = '0', 3500);
+    });
+</script>
+</body>
+</html>

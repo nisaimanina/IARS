@@ -1,0 +1,228 @@
+@model IARS.Models.KaizenProposal
+
+@{
+    Layout = null;
+    ViewData["Title"] = "Kaizen Generator";
+    var userName = User.Identity?.Name ?? "User";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <style>
+        :root {
+            --isuzu-red: #ED1C24;
+            --sidebar-black: #1A1A1A;
+            --bg-light: #F4F7F6;
+        }
+
+        body, html {
+            height: 100%;
+            margin: 0;
+            background-color: var(--bg-light);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+
+        .wrapper { display: flex; height: 100vh; width: 100vw; }
+
+        /* Sidebar - Strict match to Dashboard */
+        .sidebar {
+            width: 280px;
+            background-color: var(--sidebar-black);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .sidebar-branding {
+            padding: 30px 20px;
+            text-align: center;
+            border-bottom: 1px solid #333;
+        }
+
+        .sidebar-logo { width: 100%; max-width: 180px; margin-bottom: 10px; }
+        .sidebar-title { color: white; font-weight: 800; font-size: 1.1rem; letter-spacing: 2px; text-transform: uppercase; }
+
+        .nav-menu { flex-grow: 1; padding: 20px 10px; }
+        .nav-link-custom {
+            display: flex; align-items: center; padding: 14px 20px; color: #888;
+            text-decoration: none; font-weight: 600; border-radius: 12px; margin-bottom: 8px;
+        }
+        .nav-link-custom.active { background: white; color: black !important; }
+        .nav-link-custom i { margin-right: 15px; font-size: 1.2rem; }
+
+        /* Main Content */
+        .main-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 40px; /* Padding sama dengan Dashboard */
+        }
+
+        .top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .page-indicator { color: var(--isuzu-red); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; font-size: 0.8rem; }
+
+        .btn-logout {
+            background: var(--sidebar-black); color: white; border: none;
+            padding: 8px 20px; border-radius: 50px; font-weight: 700; font-size: 0.85rem;
+            text-decoration: none;
+        }
+
+        /* Generator Card & Info Box Alignment */
+        .equal-height-row {
+            display: flex;
+            align-items: stretch; /* Memastikan kiri dan kanan sama tinggi */
+        }
+
+        .generator-card {
+            background: white;
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            height: 100%;
+            border: none;
+        }
+
+        .info-box {
+            background: #1a1a1a;
+            color: white;
+            border-radius: 24px;
+            padding: 40px;
+            height: 100%;
+        }
+
+        .form-label { font-weight: 800; font-size: 0.8rem; color: #333; text-transform: uppercase; margin-bottom: 10px; }
+        
+        .custom-input {
+            border: 2px solid #eee;
+            border-radius: 12px;
+            padding: 12px 15px;
+            background: #fafafa;
+        }
+
+        .btn-generate-main {
+            background: var(--sidebar-black);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 15px;
+            font-weight: 800;
+            text-transform: uppercase;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        /* FIXED STEP ALIGNMENT */
+        .step-item {
+            display: flex;
+            align-items: flex-start; /* Alignment bermula dari atas teks */
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .step-number {
+            background: var(--isuzu-red);
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+            margin-top: 2px; /* Penyelarasan halus dengan baris pertama teks */
+        }
+
+        .step-text {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            line-height: 1.5;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="wrapper">
+    <div class="sidebar">
+        <div class="sidebar-branding">
+            <img src="/images/logo_isuzu.png" alt="Isuzu" class="sidebar-logo" asp-append-version="true">
+            <div class="sidebar-title">Kaizen System</div>
+        </div>
+        <nav class="nav-menu">
+            <a asp-controller="Home" asp-action="Index" class="nav-link-custom"><i class="bi bi-grid-fill"></i> Dashboard</a>
+            <a asp-controller="Kaizen" asp-action="Create" class="nav-link-custom active"><i class="bi bi-plus-square-fill"></i> Kaizen Generator</a>
+            <a asp-controller="Kaizen" asp-action="Index" class="nav-link-custom"><i class="bi bi-clock-history"></i> Proposal History</a>
+        </nav>
+    </div>
+
+    <div class="main-container">
+        <div class="top-header">
+            <div class="page-indicator">Tasks / Kaizen Generator</div>
+            <div class="d-flex align-items-center gap-3">
+                <div class="text-end">
+                    <p class="fw-bold m-0 text-dark" style="font-size: 0.9rem;">@userName</p>
+                    <p class="text-muted m-0" style="font-size: 0.75rem;">Employee</p>
+                </div>
+                <i class="bi bi-person-circle fs-3 text-dark"></i>
+                <a asp-controller="Home" asp-action="Login" class="btn-logout">Logout</a>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <h1 class="fw-bolder" style="font-size: 2rem; letter-spacing: -1px;">AI Kaizen Generator</h1>
+            <p class="text-muted" style="font-size: 0.95rem;">Fill in your idea title and objective to generate a full proposal.</p>
+        </div>
+
+        <div class="row g-4 equal-height-row">
+            <div class="col-lg-8">
+                <div class="generator-card">
+                    <form asp-action="Create" method="post">
+                        <div class="mb-4">
+                            <label class="form-label">Kaizen Title</label>
+                            <input type="text" name="Title" class="form-control custom-input" placeholder="e.g. Digitalizing Stock Inventory Process" required />
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label">Improvement Objective</label>
+                            <textarea name="Objective" class="form-control custom-input" rows="7" placeholder="Describe what you want to achieve..." required></textarea>
+                        </div>
+                        <button type="submit" class="btn-generate-main">
+                            Generate Full Proposal <i class="bi bi-magic ms-2"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="info-box">
+                    <h5 class="fw-bold mb-4 text-white">How it works?</h5>
+                    
+                    <div class="step-item">
+                        <div class="step-number">1</div>
+                        <p class="step-text">Enter a catchy title for your improvement idea.</p>
+                    </div>
+
+                    <div class="step-item">
+                        <div class="step-number">2</div>
+                        <p class="step-text">Write down the main objective or goal of your proposal.</p>
+                    </div>
+
+                    <div class="step-item">
+                        <div class="step-number">3</div>
+                        <p class="step-text">Click generate! AI will analyze and draft the Current Situation and Expected Results automatically.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

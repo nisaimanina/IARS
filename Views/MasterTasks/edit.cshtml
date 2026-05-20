@@ -1,0 +1,77 @@
+@model IARS.Models.MasterTask
+
+@{
+    ViewData["Title"] = "Edit Task";
+}
+
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-warning text-dark">
+            <h2 class="mb-0">Edit Task: @Model.ProjectName</h2>
+        </div>
+        <div class="card-body">
+            <form asp-action="Edit">
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                @* // Rujukan: Sangat penting! ID kena ada secara 'hidden' supaya database tahu mana nak update *@
+                <input type="hidden" asp-for="Id" />
+
+                <div class="row">
+                    @* // Rujukan: Tambah balik Project Name *@
+                    <div class="col-md-8 form-group mb-3">
+                        <label asp-for="ProjectName" class="form-label fw-bold"></label>
+                        <input asp-for="ProjectName" class="form-control" />
+                        <span asp-validation-for="ProjectName" class="text-danger"></span>
+                    </div>
+
+                    @* // Rujukan: Tambah balik Employee No *@
+                    <div class="col-md-4 form-group mb-3">
+                        <label asp-for="EmployeeNo" class="form-label fw-bold"></label>
+                        <input asp-for="EmployeeNo" class="form-control" />
+                        <span asp-validation-for="EmployeeNo" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="row">
+                    @* // Rujukan: Tambah balik tarikh *@
+                    <div class="col-md-6 form-group mb-3">
+                        <label asp-for="PlanStart" class="form-label fw-bold"></label>
+                        <input asp-for="PlanStart" type="date" class="form-control" />
+                    </div>
+                    <div class="col-md-6 form-group mb-3">
+                        <label asp-for="PlanEnd" class="form-label fw-bold"></label>
+                        <input asp-for="PlanEnd" type="date" class="form-control" />
+                    </div>
+                </div>
+
+                @* // Rujukan: Tambah dropdown Status *@
+                <div class="form-group mb-3">
+                    <label asp-for="CurrentStatus" class="form-label fw-bold">Status</label>
+                    <select asp-for="CurrentStatus" class="form-select">
+                        <option value="New">New</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="On Hold">On Hold</option>
+                        <option value="Completed">Completed</option>
+                    </select>
+                </div>
+
+                @* // Rujukan: Tambah Objective *@
+                <div class="form-group mb-3">
+                    <label asp-for="ProjectObjective" class="form-label fw-bold"></label>
+                    <textarea asp-for="ProjectObjective" class="form-control" rows="3"></textarea>
+                </div>
+
+                <hr />
+
+                <div class="form-group mt-3">
+                    <button type="submit" class="btn btn-warning px-4">Update Changes</button>
+                    <a asp-action="Index" class="btn btn-secondary px-4">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

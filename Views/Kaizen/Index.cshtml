@@ -1,0 +1,409 @@
+@model IEnumerable<IARS.Models.KaizenProposal>
+
+@{
+    Layout = null;
+    ViewData["Title"] = "Proposal History";
+    var userName  = Context.Session.GetString("UserName") ?? "User";
+    var role = (Context.Session.GetString("UserRole") ?? "Employee").ToUpper();
+    var roleLabel = role switch {
+        "KAIZENCOMMITTEE" => "Kaizen Committee",
+        "HOD"             => "Reviewer",
+        "FINALAPPROVER"   => "Approver",
+        "REVIEWER"        => "Reviewer",
+        "ADMIN"           => "Administrator",
+        _                 => "Employee"
+    };
+    var initial   = userName.Length > 0 ? userName[0].ToString().ToUpper() : "U";
+    var proposals = Model?.ToList() ?? new List<IARS.Models.KaizenProposal>();
+    var total     = proposals.Count;
+    var hodList   = ViewBag.HODList as List<IARS.Models.Employee> ?? new List<IARS.Models.Employee>();
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Proposal History — IARS</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --red:#ED1C24; --red-soft:#fff0f0; --dark:#0e1118;
+            --sidebar-w:300px; --sidebar-col:80px;
+            --topbar-h:100px; --tr:0.3s ease;
+            --tx:#1a1d2e; --muted:#7c8db5;
+            --bg:#f4f6fa; --border:#e4e9f4;
+            --accent: #2563eb;
+            --success: #059669;
+        }
+        body { font-family:'Inter',system-ui,sans-serif; background:var(--bg); overflow:hidden; height:100vh; display:flex; font-size:15.5px; }
+
+        /* SIDEBAR */
+        #sb { width:var(--sidebar-w); min-height:100vh; background:var(--dark); display:flex; flex-direction:column; flex-shrink:0; transition:all var(--tr); position:relative; z-index:100; }
+        #sb.collapsed { width:var(--sidebar-col); padding-top:20px; }
+        #sbToggle { position:absolute; top:35px; right:-16px; width:32px; height:32px; background:var(--red); border:none; border-radius:50%; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:0.9rem; z-index:200; box-shadow:0 4px 14px rgba(237,28,36,0.4); transition:transform .2s; }
+        #sbToggle:hover { transform:scale(1.1); }
+        #sb.collapsed #sbToggle .ti { transform:rotate(180deg); }
+        .sb-brand { display:flex; flex-direction:column; align-items:center; padding:32px 18px 24px; border-bottom:1px solid rgba(255,255,255,0.05); text-decoration:none; overflow:hidden; }
+        .logo-box { background:white; border-radius:14px; padding:12px 16px; display:flex; align-items:center; justify-content:center; width:100%; max-width:180px; box-shadow:0 6px 16px rgba(0,0,0,0.25); }
+        .logo-box img { width:100%; max-width:150px; height:auto; object-fit:contain; display:block; }
+        .brand-label { margin-top:14px; text-align:center; overflow:hidden; }
+        .brand-label .bn { color:white; font-weight:900; font-size:1.15rem; letter-spacing:-0.2px; white-space:nowrap; }
+        .brand-label .bt { color:rgba(255,255,255,0.32); font-size:0.75rem; letter-spacing:1px; text-transform:uppercase; margin-top:4px; white-space:nowrap; }
+        #sb.collapsed .sb-brand { display:none; }
+        .sb-sec { padding:24px 22px 8px; font-size:0.72rem; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:rgba(255,255,255,0.2); white-space:nowrap; }
+        #sb.collapsed .sb-sec { opacity:0; height:28px; padding:0; }
+        .sb-nav { list-style:none; padding:4px 12px; flex-grow:1; }
+        .sb-nav a { display:flex; align-items:center; gap:16px; padding:12px 16px; color:rgba(255,255,255,0.48); text-decoration:none; border-radius:12px; margin-bottom:6px; transition:all var(--tr); white-space:nowrap; overflow:hidden; font-size:1.05rem; font-weight:600; letter-spacing:-0.1px; }
+        .sb-nav a:hover { background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.88); }
+        .sb-nav a.on { background:var(--red); color:white; }
+        .sb-nav a i { font-size:1.3rem; flex-shrink:0; width:24px; text-align:center; }
+        .sb-nav .lbl { overflow:hidden; white-space:nowrap; }
+        #sb.collapsed .sb-nav .lbl { display:none; }
+        .sb-foot { padding:14px 12px; border-top:1px solid rgba(255,255,255,0.05); }
+        .sb-foot a { display:flex; align-items:center; gap:16px; padding:12px 16px; border-radius:12px; color:rgba(255,255,255,0.38); text-decoration:none; font-size:1.05rem; font-weight:600; transition:all var(--tr); white-space:nowrap; overflow:hidden; }
+        .sb-foot a:hover { background:rgba(237,28,36,0.14); color:var(--red); }
+        .sb-foot a i { font-size:1.3rem; flex-shrink:0; width:24px; text-align:center; }
+        #sb.collapsed .sb-foot .lbl { display:none; }
+
+
+        /* MAIN */
+        #main { flex-grow:1; display:flex; flex-direction:column; overflow:hidden; }
+        .topbar { height:var(--topbar-h); background:white; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 36px; flex-shrink:0; }
+        .tb-left { display:flex; flex-direction:column; justify-content:center; }
+        .tb-left .sysname { font-size:0.75rem; color:var(--red); font-weight:800; letter-spacing:0.8px; margin:0 0 4px 0; text-transform:uppercase; }
+        .tb-left .ptitle { font-size:1.55rem; font-weight:900; color:var(--tx); letter-spacing:-0.4px; margin:0; }
+        .tb-right { display:flex; align-items:center; justify-content:flex-end; gap:16px; }
+        .user-chip { display:flex; align-items:center; gap:14px; background:#f7f8fc; border:1.5px solid var(--border); border-radius:14px; padding:6px 18px 6px 8px; cursor:pointer; transition:border .2s; }
+        .user-chip:hover { border-color:#c8d0e8; }
+        .u-avatar { width:46px; height:46px; background:#2563eb; color:white; border-radius:12px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:1.15rem; letter-spacing:-0.5px; flex-shrink:0; }
+        .u-info { text-align:left; }
+        .u-info .uname { font-weight:800; font-size:1rem; color:var(--tx); line-height:1.2; }
+        .u-info .urole { font-size:0.8rem; color:var(--muted); font-weight:600; }
+        
+        .ca { flex-grow:1; overflow-y:auto; padding:32px 36px; background:#f8f9fa; }
+
+        /* Page header */
+        .ph { display:flex; justify-content:space-between; align-items:center; margin-bottom:32px; max-width:900px; margin-left:auto; margin-right:auto; }
+        .ph-left h1 { font-size:2rem; font-weight:900; color:var(--tx); letter-spacing:-0.8px; margin:0 0 4px 0; }
+        .ph-left p { font-size:1.05rem; color:var(--muted); margin:0; font-weight:500; }
+        .btn-new { display:inline-flex; align-items:center; gap:10px; background:var(--accent); color:white; padding:12px 24px; border-radius:12px; font-size:0.95rem; font-weight:800; text-decoration:none; border:none; transition:transform .2s, box-shadow .2s; cursor:pointer; font-family:inherit; }
+        .btn-new:hover { transform:translateY(-2px); box-shadow:0 6px 16px rgba(37,99,235,0.25); color:white; }
+
+        /* Proposals List */
+        .p-list { max-width:900px; margin:0 auto; padding-bottom:60px; }
+        .p-card { background:white; border-radius:24px; border:1px solid var(--border); padding:32px; margin-bottom:28px; box-shadow:0 4px 20px rgba(0,0,0,0.03); position:relative; }
+        
+        .p-id { font-family:'Roboto Mono', monospace; font-size:0.85rem; font-weight:800; color:var(--muted); text-transform:uppercase; margin-bottom:8px; display:block; }
+        .p-title { font-size:1.6rem; font-weight:900; color:var(--tx); letter-spacing:-0.4px; margin:0 0 6px; line-height:1.2; }
+        .p-meta { font-size:0.92rem; color:var(--muted); font-weight:600; display:flex; align-items:center; gap:12px; margin-bottom:32px; }
+        .p-meta span { display:flex; align-items:center; gap:6px; }
+        .p-status { position:absolute; top:32px; right:32px; padding:8px 18px; border-radius:20px; font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.8px; }
+        
+        /* Stepper */
+        .stepper { display:flex; justify-content:space-between; align-items:center; margin:40px auto; position:relative; max-width:600px; overflow:hidden; }
+        .stepper::before { content:''; position:absolute; top:20px; left:0; right:0; height:4px; background:#eef2f8; z-index:1; }
+        .step-progress { position:absolute; top:20px; left:0; height:4px; background:var(--success); z-index:2; transition:width 0.4s ease; max-width:100%; }
+        .step { position:relative; z-index:3; display:flex; flex-direction:column; align-items:center; gap:10px; width:100px; }
+        .step-circle { width:40px; height:40px; border-radius:50%; background:#eef2f8; border:4px solid white; display:flex; align-items:center; justify-content:center; font-size:1.1rem; color:#b0bac9; transition:all .3s; }
+        .step.active .step-circle { background:var(--success); color:white; }
+        .step-lbl { font-size:0.8rem; font-weight:800; color:var(--muted); white-space:nowrap; }
+        .step.active .step-lbl { color:var(--success); }
+
+        /* Comment Boxes */
+        .comment-box { background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:18px 22px; margin-top:20px; }
+        .comment-box .c-hd { font-size:0.72rem; font-weight:900; text-transform:uppercase; letter-spacing:1.2px; color:#64748b; margin-bottom:8px; }
+        .comment-box .c-txt { font-size:0.95rem; color:#1e293b; font-style:italic; line-height:1.5; font-weight:500; }
+
+        .btn-vh { display:inline-flex; align-items:center; gap:8px; background:white; color:var(--tx); border:1.5px solid var(--border); border-radius:12px; padding:10px 20px; font-size:0.9rem; font-weight:700; text-decoration:none; margin-top:24px; transition:all .2s; }
+        .btn-vh:hover { background:var(--bg); border-color:#cbd5e1; }
+        
+        .empty-state { text-align:center; padding:100px 20px; }
+        .empty-state i { font-size:5rem; color:#cbd5e1; margin-bottom:24px; }
+        .empty-state h3 { font-size:1.5rem; font-weight:900; color:var(--tx); }
+        .empty-state p { color:var(--muted); margin-top:10px; font-size:1.05rem; }
+
+        ::-webkit-scrollbar { width:6px; }
+        ::-webkit-scrollbar-thumb { background:#cfd6e4; border-radius:10px; }
+    </style>
+</head>
+<body>
+
+<nav id="sb">
+    <button id="sbToggle" onclick="toggle()"><i class="bi bi-chevron-left ti"></i></button>
+    <a href="/" class="sb-brand">
+        <div class="logo-box"><img src="/images/logo_isuzu.png" alt="Isuzu" asp-append-version="true" /></div>
+        <div class="brand-label">
+            <div class="bn">Kaizen System</div>
+            <div class="bt">Continuous Improvement</div>
+        </div>
+    </a>
+    <ul class="sb-nav">
+        <div class="sb-sec" style="margin-top:10px;">Menu</div>
+        <li><a asp-controller="Home" asp-action="Index" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Index" && ViewContext.RouteData.Values["Controller"]?.ToString() == "Home" ? "on" : "")"><i class="bi bi-grid-1x2-fill"></i><span class="lbl">Dashboard</span></a></li>
+        
+        @if (role == "KAIZENCOMMITTEE" || role == "ADMIN")
+        {
+            <li><a asp-controller="Home" asp-action="AllProposals" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AllProposals" ? "on" : "")"><i class="bi bi-list-ul"></i><span class="lbl">All Proposals</span></a></li>
+            <li><a asp-controller="Home" asp-action="Winners" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Winners" ? "on" : "")"><i class="bi bi-trophy-fill"></i><span class="lbl">Best of Month</span></a></li>
+            <li><a asp-controller="Home" asp-action="ProposalHistory" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "ProposalHistory" ? "on" : "")"><i class="bi bi-clock-history"></i><span class="lbl">Proposals History</span></a></li>
+        }
+        
+        @if (role == "EMPLOYEE" || role == "USER" || role == "KAIZENCOMMITTEE" || role == "ADMIN")
+        {
+            <li><a asp-controller="Kaizen" asp-action="Create" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Create" ? "on" : "")"><i class="bi bi-plus-circle-fill"></i><span class="lbl">Kaizen Generator</span></a></li>
+            <li><a asp-controller="Kaizen" asp-action="Index" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Index" && ViewContext.RouteData.Values["Controller"]?.ToString() == "Kaizen" ? "on" : "")"><i class="bi bi-clock-history"></i><span class="lbl">My Proposals</span></a></li>
+        }
+        
+        <li><a asp-controller="Home" asp-action="Profile" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Profile" ? "on" : "")"><i class="bi bi-person-fill"></i><span class="lbl">My Profile</span></a></li>
+    </ul>
+    <div class="sb-foot">
+        <a asp-controller="Home" asp-action="Logout"><i class="bi bi-box-arrow-left"></i><span class="lbl">Sign Out</span></a>
+    </div>
+</nav>
+
+<div id="main">
+    <div class="topbar">
+        <div class="tb-left">
+            <div class="sysname">Intelligent Analysis &amp; Reporting System</div>
+            <div class="ptitle">My Proposals</div>
+            <div style="font-size:0.85rem;color:var(--muted);font-weight:600;margin-top:2px;">IARS &rsaquo; Proposal History</div>
+        </div>
+        <div class="tb-right">
+            @await Html.PartialAsync("_NotificationBell")
+
+            <div class="user-chip">
+                <div class="u-avatar">@initial</div>
+                <div class="u-info">
+                    <div class="uname">@userName</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ca">
+        <div class="ph">
+            <div class="ph-left">
+                <h1>My Proposals</h1>
+                <p>All your submitted research proposals.</p>
+            </div>
+            <a asp-controller="Kaizen" asp-action="Create" class="btn-new">
+                <i class="bi bi-plus"></i> New Proposal
+            </a>
+        </div>
+
+        <div class="p-list">
+            @if (proposals.Any())
+            {
+                @foreach (var item in proposals.OrderByDescending(p => p.CreatedAt))
+                {
+                    var statusInfo = item.Status switch {
+                        "Pending"       => new { Bg="#fff7ed", Fg="#ea580c", Lbl="PENDING SUBMISSION" },
+                        "UnderReview"   => new { Bg="#fef3c7", Fg="#92400e", Lbl="UNDER REVIEW" },
+                        "HODApproved"   => new { Bg="#eff6ff", Fg="#2563eb", Lbl="REVIEWER APPROVED" },
+                        "HODRejected"   => new { Bg="#fff1f2", Fg="#e11d48", Lbl="REVIEWER REJECTED" },
+                        "FinalApproved" => new { Bg="#ecfdf5", Fg="#059669", Lbl="APPROVED BY APPROVER" },
+                        "FinalRejected" => new { Bg="#fff1f2", Fg="#e11d48", Lbl="REJECTED BY APPROVER" },
+                        "Released"      => new { Bg="#ecfdf5", Fg="#059669", Lbl="COMPLETED" },
+                        _               => new { Bg="#f4f6fa", Fg="#7c8db5", Lbl=item.Status }
+                    };
+
+                    int step = item.Status switch {
+                        "Pending" => 0,
+                        "UnderReview" => 1,
+                        "HODApproved" => 2,
+                        "FinalApproved" => 3,
+                        "Released" => 4,
+                        "HODRejected" => 1,
+                        "FinalRejected" => 2,
+                        _ => 0
+                    };
+                    string progressW = Math.Min((step - 1) * 33.33, 100) + "%";
+                    if (item.Status.Contains("Rejected")) progressW = Math.Max((step - 2) * 33.33, 0) + "%"; // Stop before the rejected step
+
+                    <div class="p-card">
+                        <span class="p-id">P@(item.Id.ToString("D3"))</span>
+                        <h2 class="p-title">@item.Title</h2>
+                        <div class="p-meta">
+                            <span><i class="bi bi-building"></i> @(item.Employee?.Department ?? "General")</span>
+                            <span>•</span>
+                            <span><i class="bi bi-calendar"></i> @item.CreatedAt.ToString("dd MMM yyyy")</span>
+                        </div>
+
+                        <div class="p-status" style="background:@statusInfo.Bg; color:@statusInfo.Fg;">@statusInfo.Lbl</div>
+
+                        <div class="stepper">
+                            <div class="step-progress" style="width:@progressW; background:@(item.Status.Contains("Rejected") ? "#e11d48" : "var(--success)");"></div>
+                            
+                            <div class="step @(step >= 1 ? "active" : "")">
+                                <div class="step-circle" style="background:@(step >= 1 ? "var(--success)" : ""); color:@(step >= 1 ? "white" : "");">
+                                    <i class="bi @(step >= 1 ? "bi-check-lg" : "bi-circle")"></i>
+                                </div>
+                                <div class="step-lbl">Submitted</div>
+                            </div>
+
+                            <div class="step @(step >= 2 ? "active" : "")">
+                                <div class="step-circle" style="background:@(item.Status == "HODRejected" ? "#e11d48" : (step >= 2 ? "var(--success)" : "")); color:@(step >= 2 || item.Status == "HODRejected" ? "white" : "");">
+                                    <i class="bi @(item.Status == "HODRejected" ? "bi-x-lg" : (step >= 2 ? "bi-check-lg" : "bi-circle"))"></i>
+                                </div>
+                                <div class="step-lbl">Reviewer</div>
+                            </div>
+
+                            <div class="step @(step >= 3 ? "active" : "")">
+                                <div class="step-circle" style="background:@(item.Status == "FinalRejected" ? "#e11d48" : (step >= 3 ? "var(--success)" : "")); color:@(step >= 3 || item.Status == "FinalRejected" ? "white" : "");">
+                                    <i class="bi @(item.Status == "FinalRejected" ? "bi-x-lg" : (step >= 3 ? "bi-check-lg" : "bi-circle"))"></i>
+                                </div>
+                                <div class="step-lbl">Approver</div>
+                            </div>
+
+                            <div class="step @(step >= 4 ? "active" : "")">
+                                <div class="step-circle" style="background:@(step >= 4 ? "var(--success)" : ""); color:@(step >= 4 ? "white" : "");">
+                                    <i class="bi @(step >= 4 ? "bi-check-lg" : "bi-circle")"></i>
+                                </div>
+                                <div class="step-lbl">Completed</div>
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(item.HODRemarks))
+                        {
+                            <div class="comment-box">
+                                <div class="c-hd">Reviewer Comment</div>
+                                <div class="c-txt">@item.HODRemarks</div>
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(item.FinalRemarks))
+                        {
+                            <div class="comment-box">
+                                <div class="c-hd">Approver Comment</div>
+                                <div class="c-txt">@item.FinalRemarks</div>
+                            </div>
+                        }
+
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <a asp-action="Details" asp-route-id="@item.Id" class="btn-vh" target="_blank">
+                                <i class="bi bi-eye"></i> View Details
+                            </a>
+
+                            @if (item.Status == "Pending" || item.Status.Contains("Rejected"))
+                            {
+                                <div style="display:flex; gap:10px; margin-top:24px;">
+                                    <a asp-action="Edit" asp-route-id="@item.Id" class="btn-vh" style="margin-top:0; background:#f8fafc; color:#1e293b;">
+                                        <i class="bi bi-pencil-square"></i> Edit Proposal
+                                    </a>
+                                    <button class="btn-new" style="background:var(--red);" onclick="openAssign(@item.Id, '@item.Title.Replace("'","\\'")')">
+                                        <i class="bi bi-send"></i> @(item.Status.Contains("Rejected") ? "Resubmit" : "Submit Proposal")
+                                    </button>
+                                    @if (item.Status == "Pending")
+                                    {
+                                        <form asp-action="Delete" asp-route-id="@item.Id" method="post" onsubmit="return confirm('Delete this proposal?');">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" style="background:#fff1f2; color:#e11d48; border:1px solid #fecdd3; padding:12px; border-radius:12px; cursor:pointer;"><i class="bi bi-trash"></i></button>
+                                        </form>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="empty-state">
+                    <i class="bi bi-journal-x"></i>
+                    <h3>No Proposals Yet</h3>
+                    <p>Start by creating your first Kaizen proposal today.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Submit Proposal Modal -->
+<div id="assignModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9990;align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:20px;padding:36px;max-width:460px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;">
+            <div style="width:48px;height:48px;background:#fff7ed;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">👤</div>
+            <div>
+                <div style="font-size:1.1rem;font-weight:900;color:#1a1d2e;">Submit Proposal</div>
+                <div id="assignTitle" style="font-size:0.83rem;color:#7c8db5;margin-top:2px;font-weight:600;"></div>
+            </div>
+        </div>
+        <form asp-controller="Kaizen" asp-action="SubmitProposal" method="post" id="assignForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" id="assignId" value="" />
+            
+            <label style="font-size:0.85rem;font-weight:800;color:#444;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:10px;">Select Reviewer</label>
+            <select name="hodId" id="hodSelect" style="width:100%;padding:14px 16px;border:1.5px solid #e0e6f0;border-radius:12px;font-family:inherit;font-size:0.95rem;color:#1a1d2e;background:#fdfdfe;margin-bottom:20px;" required>
+                <option value="">-- Select --</option>
+                @foreach (var h in (ViewBag.HODList as List<IARS.Models.Employee> ?? new List<IARS.Models.Employee>()))
+                {
+                    <option value="@h.EmployeeID">@h.Name (@h.Role — @h.Department)</option>
+                }
+            </select>
+
+            <label style="font-size:0.85rem;font-weight:800;color:#444;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:10px;">Select Approver</label>
+            <select name="faId" id="faSelect" style="width:100%;padding:14px 16px;border:1.5px solid #e0e6f0;border-radius:12px;font-family:inherit;font-size:0.95rem;color:#1a1d2e;background:#fdfdfe;margin-bottom:20px;" required>
+                <option value="">-- Select --</option>
+                @foreach (var f in (ViewBag.FAList as List<IARS.Models.Employee> ?? new List<IARS.Models.Employee>()))
+                {
+                    <option value="@f.EmployeeID">@f.Name (@f.Role)</option>
+                }
+            </select>
+
+            <div style="display:flex;gap:12px;">
+                <button type="submit" style="flex:1;padding:14px;background:#1a1d2e;color:white;border:none;border-radius:12px;font-weight:800;font-size:0.95rem;cursor:pointer;font-family:inherit;transition:background .2s;" onmouseover="this.style.background='#ED1C24'" onmouseout="this.style.background='#1a1d2e'">
+                    <i class="bi bi-send-fill me-2"></i>Submit
+                </button>
+                <button type="button" onclick="closeAssign()" style="padding:14px 20px;background:#f4f6fa;color:#7c8db5;border:1.5px solid #e4e9f4;border-radius:12px;font-weight:800;cursor:pointer;font-family:inherit;">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div id="toastMsg" style="position:fixed;top:24px;right:24px;z-index:9999;background:#ecfdf5;color:#059669;border:1.5px solid #a7f3d0;border-radius:14px;padding:16px 22px;font-weight:700;font-size:.95rem;display:flex;align-items:center;gap:12px;box-shadow:0 8px 30px rgba(0,0,0,.12);animation:slideIn .3s ease;min-width:300px;">
+        <i class="bi bi-check-circle-fill" style="font-size:1.3rem;"></i> @TempData["Success"]
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div id="toastMsg" style="position:fixed;top:24px;right:24px;z-index:9999;background:#fff1f2;color:#e11d48;border:1.5px solid #fecdd3;border-radius:14px;padding:16px 22px;font-weight:700;font-size:.95rem;display:flex;align-items:center;gap:12px;box-shadow:0 8px 30px rgba(0,0,0,.12);animation:slideIn .3s ease;min-width:300px;">
+        <i class="bi bi-exclamation-circle-fill" style="font-size:1.3rem;"></i> @TempData["Error"]
+    </div>
+}
+
+<script>
+    function toggle() {
+        const sb = document.getElementById('sb');
+        sb.classList.toggle('collapsed');
+        localStorage.setItem('sbCol', sb.classList.contains('collapsed'));
+    }
+    window.addEventListener('DOMContentLoaded', () => {
+        if (localStorage.getItem('sbCol') === 'true') document.getElementById('sb').classList.add('collapsed');
+        const t = document.getElementById('toastMsg');
+        if (t) setTimeout(() => { t.style.transition = 'opacity .5s'; t.style.opacity = '0'; }, 3500);
+    });
+    let isSubmitting = false;
+    document.getElementById('assignForm').onsubmit = function() {
+        if (isSubmitting) return false;
+        isSubmitting = true;
+    };
+
+    function openAssign(id, title) {
+        document.getElementById('assignId').value = id;
+        document.getElementById('assignTitle').innerText = title;
+        document.getElementById('assignModal').style.display = 'flex';
+    }
+    function closeAssign() {
+        document.getElementById('assignModal').style.display = 'none';
+    }
+</script>
+</body>
+</html>

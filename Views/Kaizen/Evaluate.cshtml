@@ -1,0 +1,288 @@
+@model IARS.Models.KaizenProposal
+@{
+    Layout = null;
+    ViewData["Title"] = "Committee Evaluation";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Evaluate Proposal - IARS</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --red: #ED1C24;
+            --dark: #0e1118;
+            --bg: #f4f6fa;
+            --border: #e4e9f4;
+            --primary: #2563eb;
+        }
+
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            overflow: hidden;
+        }
+
+        .split-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .preview-pane {
+            flex: 1;
+            background: #525659;
+            border-right: 2px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .preview-header {
+            height: 60px;
+            background: #1a1d2e;
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .form-pane {
+            width: 450px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -4px 0 15px rgba(0,0,0,0.05);
+            z-index: 10;
+        }
+
+        .form-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .form-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        .form-footer {
+            padding: 20px 24px;
+            border-top: 1px solid var(--border);
+            background: #f8fafc;
+            display: flex;
+            gap: 12px;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .score-card {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .score-label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #475569;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+        }
+
+        .btn-submit {
+            background: var(--primary);
+            border: none;
+            color: white;
+            font-weight: 700;
+            padding: 12px 24px;
+            border-radius: 8px;
+            flex-grow: 1;
+            transition: all 0.2s;
+        }
+
+        .btn-submit:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+        }
+
+        .btn-cancel {
+            background: white;
+            border: 1.5px solid var(--border);
+            color: #64748b;
+            font-weight: 600;
+            padding: 12px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-cancel:hover {
+            background: #f1f5f9;
+            color: #334155;
+        }
+
+        .section-title {
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #94a3b8;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title::after {
+            content: "";
+            flex-grow: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .badge-id {
+            background: rgba(255,255,255,0.1);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+
+<div class="split-container">
+    <!-- Left: Preview Pane -->
+    <div class="preview-pane">
+        <div class="preview-header">
+            <div class="d-flex align-items-center gap-3">
+                <i class="bi bi-file-earmark-pdf-fill text-danger fs-4"></i>
+                <div>
+                    <div style="font-weight:800; font-size:0.95rem;">@Model.Title</div>
+                    <div style="font-size:0.75rem; opacity:0.7;">Submitted by @(Model.Employee?.Name ?? "N/A")</div>
+                </div>
+            </div>
+            <div class="badge-id">REF: KZN-@Model.Id.ToString("D5")</div>
+        </div>
+        <iframe src="@Url.Action("ProposalForm", "Kaizen", new { id = Model.Id })" id="previewFrame"></iframe>
+    </div>
+
+    <!-- Right: Form Pane -->
+    <div class="form-pane">
+        <div class="form-header">
+            <h4 style="font-weight:900; margin:0; color:var(--dark); display:flex; align-items:center; gap:12px;">
+                <i class="bi bi-clipboard-check-fill text-primary"></i>
+                Evaluation
+            </h4>
+        </div>
+
+        <div class="form-content">
+            <form asp-action="Evaluate" method="post" id="evalForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Id" />
+
+                <div class="section-title">General Decision</div>
+                <div class="score-card">
+                    <label class="score-label">Classification</label>
+                    <select asp-for="IsCommitteeKaizen" class="form-select" required>
+                        <option value="">-- Select Type --</option>
+                        <option value="true">KAIZEN</option>
+                        <option value="false">NON-KAIZEN</option>
+                    </select>
+                </div>
+
+                <div class="section-title">Scoring Matrix</div>
+                
+                <div class="row g-3">
+                    <div class="col-6">
+                        <div class="score-card">
+                            <label class="score-label">Idea (1-10)</label>
+                            <input type="number" asp-for="ScoreIdea" class="form-control" min="1" max="10" required />
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="score-card">
+                            <label class="score-label">Effort (1-20)</label>
+                            <input type="number" asp-for="ScoreEffort" class="form-control" min="1" max="20" required />
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="score-card">
+                            <label class="score-label">Application (1-10)</label>
+                            <input type="number" asp-for="ScoreApplication" class="form-control" min="1" max="10" required />
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="score-card">
+                            <label class="score-label">Improvement (1-10)</label>
+                            <input type="number" asp-for="ScoreImprovement" class="form-control" min="1" max="10" required />
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="score-card">
+                            <label class="score-label">Safety & 5S (1-20)</label>
+                            <input type="number" asp-for="ScoreSafety" class="form-control" min="1" max="20" required />
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="score-card">
+                            <label class="score-label">Tangible (0-50)</label>
+                            <input type="number" asp-for="ScoreTangible" class="form-control" min="0" max="50" required />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning border-0 mt-3" style="border-radius:12px; font-size:0.85rem;">
+                    <i class="bi bi-info-circle-fill me-2"></i>
+                    Total score and Rank (A-D) will be automatically calculated.
+                </div>
+            </form>
+        </div>
+
+        <div class="form-footer">
+            <a asp-controller="Home" asp-action="AllProposals" class="btn-cancel">Cancel</a>
+            <button type="submit" form="evalForm" class="btn-submit">Save Evaluation</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const iframe = document.getElementById('previewFrame');
+    iframe.onload = function() {
+        try {
+            const doc = iframe.contentDocument || iframe.contentWindow.document;
+            const nav = doc.querySelector('.top-nav');
+            if (nav) nav.style.display = 'none';
+            doc.body.style.paddingTop = '20px';
+        } catch (e) {
+            console.log("Iframe cross-origin or other error:", e);
+        }
+    };
+</script>
+
+</body>
+</html>

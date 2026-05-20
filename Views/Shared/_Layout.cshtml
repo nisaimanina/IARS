@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - IARS</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    @* // Reference: Added Bootstrap Icons for a modern look *@
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/IARS.styles.css" asp-append-version="true" />
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+            <div class="container-fluid">
+                <a class="navbar-brand fw-bold" asp-area="" asp-controller="Home" asp-action="Index">IARS</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+                        aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                    <ul class="navbar-nav flex-grow-1">
+                        @if (ViewContext.RouteData.Values["action"]?.ToString() != "Login")
+                        {
+                            var role = Context.Session.GetString("UserRole") ?? "User";
+                            <li class="nav-item text-nowrap">
+                                <a class="nav-link text-dark fw-semibold" asp-area="" asp-controller="Home" asp-action="Index">
+                                    <i class="bi bi-speedometer2 me-1">Dashboard</i>
+                                </a>
+                            </li>
+                            @if (role == "User")
+                            {
+                                <li class="nav-item text-nowrap">
+                                    <a class="nav-link text-dark fw-semibold" asp-area="" asp-controller="Kaizen" asp-action="Create">
+                                        <i class="bi bi-magic me-1">Generator</i>
+                                    </a>
+                                </li>
+                            }
+                            <li class="nav-item text-nowrap">
+                                <a class="nav-link text-dark fw-semibold" asp-area="" asp-controller="Kaizen" asp-action="Index">
+                                    <i class="bi bi-clock-history me-1">History</i>
+                                </a>
+                            </li>
+                            @if (role == "KaizenCommittee" || role == "User")
+                            {
+                                <li class="nav-item text-nowrap">
+                                    <a class="nav-link text-dark fw-semibold" asp-area="" asp-controller="MasterTasks" asp-action="Index">
+                                        <i class="bi bi-list-task me-1">Tasks</i>
+                                    </a>
+                                </li>
+                            }
+                        }
+                    </ul>
+
+                    @* // Reference: Show Logout button only when NOT on the login page *@
+                    @if (ViewContext.RouteData.Values["action"]?.ToString() != "Login")
+                    {
+                        var userName = Context.Session.GetString("UserName") ?? "User";
+                        var roleStr = (Context.Session.GetString("UserRole") ?? "User").ToUpper();
+                        var roleLabel = roleStr switch {
+                            "KAIZENCOMMITTEE" => "Kaizen Committee",
+                            "HOD"             => "Reviewer",
+                            "FINALAPPROVER"   => "Approver",
+                            "REVIEWER"        => "Reviewer",
+                            "ADMIN"           => "Administrator",
+                            _                 => "Employee"
+                        };
+                        var initial = userName.Length > 0 ? userName[0].ToString().ToUpper() : "U";
+
+                        <ul class="navbar-nav align-items-center gap-3">
+                            @await Html.PartialAsync("_NotificationBell")
+                            
+                            <li class="nav-item">
+                                <div class="user-chip d-flex align-items-center gap-2 px-3 py-1" style="background:#f7f8fc; border:1.5px solid #e4e9f4; border-radius:14px; cursor:default;">
+                                    <div class="u-avatar" style="width:38px; height:38px; background:#2563eb; color:white; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1rem; flex-shrink:0;">
+                                        @initial
+                                    </div>
+                                    <div class="u-info text-start" style="line-height:1.2;">
+                                        <div class="uname" style="font-weight:700; font-size:0.9rem; color:#1a1d2e;">@userName</div>
+                                        <div class="urole" style="font-size:0.75rem; color:#7c8db5; font-weight:600;">@roleLabel</div>
+                                    </div>
+                                </div>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="btn btn-outline-danger btn-sm" asp-area="" asp-controller="Home" asp-action="Logout" style="border-radius:8px; font-weight:600;">
+                                    <i class="bi bi-box-arrow-right"></i> Logout
+                                </a>
+                            </li>
+                        </ul>
+                    }
+
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <div class="container">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted">
+        <div class="container text-center">
+            &copy; 2026 - IARS Management System - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy Policy</a>
+        </div>
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+    <script>
+        $(document).ready(function() {
+            const role = '@(Context.Session.GetString("UserRole") ?? "User")';
+            
+            const notifications = {
+                'User': [
+                    { icon: 'bi-check-circle-fill', color: 'bg-success-subtle text-success', title: 'Proposal Approved', text: 'Your Kaizen proposal "Office Optimization" has been approved.', time: '2 hours ago' },
+                    { icon: 'bi-chat-dots-fill', color: 'bg-info-subtle text-info', title: 'New Comment', text: 'Reviewer left a comment on your recent submission.', time: '5 hours ago' }
+                ],
+                'HOD': [
+                    { icon: 'bi-file-earmark-plus-fill', color: 'bg-warning-subtle text-warning', title: 'Pending Review', text: 'New proposal from Ahmad requires your attention.', time: '10 mins ago' },
+                    { icon: 'bi-exclamation-triangle-fill', color: 'bg-danger-subtle text-danger', title: 'Reminder', text: 'You have 3 proposals waiting for more than 2 days.', time: '1 hour ago' }
+                ],
+                'Reviewer': [
+                    { icon: 'bi-file-earmark-plus-fill', color: 'bg-warning-subtle text-warning', title: 'Pending Review', text: 'New proposal from Ahmad requires your attention.', time: '10 mins ago' },
+                    { icon: 'bi-exclamation-triangle-fill', color: 'bg-danger-subtle text-danger', title: 'Reminder', text: 'You have 3 proposals waiting for more than 2 days.', time: '1 hour ago' }
+                ],
+                'FinalApprover': [
+                    { icon: 'bi-shield-check', color: 'bg-primary-subtle text-primary', title: 'Ready for Approval', text: '5 proposals have passed HOD review.', time: 'Just now' },
+                    { icon: 'bi-calendar-event', color: 'bg-info-subtle text-info', title: 'Monthly Summary', text: 'Your approval statistics for April are ready.', time: '1 day ago' }
+                ],
+                'KaizenCommittee': [
+                    { icon: 'bi-trophy-fill', color: 'bg-warning-subtle text-warning', title: 'Winner Selected', text: 'The Best Kaizen for April has been finalized.', time: '30 mins ago' },
+                    { icon: 'bi-people-fill', color: 'bg-success-subtle text-success', title: 'New User Registered', text: 'A new employee has joined the IARS system.', time: '2 hours ago' }
+                ]
+            };
+
+            function loadNotifications() {
+                const list = $('#notificationList');
+                const userNotifications = notifications[role] || notifications['User'];
+                
+                let html = '';
+                userNotifications.forEach(n => {
+                    html += `
+                        <a href="#" class="notification-item">
+                            <div class="notification-icon ${n.color}">
+                                <i class="bi ${n.icon}"></i>
+                            </div>
+                            <div class="notification-content">
+                                <div class="title">${n.title}</div>
+                                <div class="text-muted" style="font-size: 0.75rem; margin-bottom: 2px;">${n.text}</div>
+                                <div class="time"><i class="bi bi-clock me-1"></i>${n.time}</div>
+                            </div>
+                        </a>
+                    `;
+                });
+                
+                list.html(html);
+            }
+
+            // Simulate loading
+            setTimeout(loadNotifications, 800);
+        });
+    </script>
+</body>
+
+</html>

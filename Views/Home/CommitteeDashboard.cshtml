@@ -1,0 +1,414 @@
+@model IEnumerable<IARS.Models.KaizenProposal>
+
+@{
+    Layout = null;
+    ViewData["Title"] = "Kaizen Committee Dashboard";
+    var userName  = Context.Session.GetString("UserName") ?? "Admin";
+    var role      = (Context.Session.GetString("UserRole") ?? "KaizenCommittee").ToUpper();
+    var initial   = userName.Length > 0 ? userName[0].ToString().ToUpper() : "K";
+    var all       = Model?.ToList() ?? new List<IARS.Models.KaizenProposal>();
+    var roleLabel = role switch {
+        "KAIZENCOMMITTEE" => "Kaizen Committee",
+        "HOD"             => "Head of Department",
+        "FINALAPPROVER"   => "Approver",
+        "REVIEWER"        => "Reviewer",
+        "ADMIN"           => "Administrator",
+        _                 => "Employee"
+    };
+
+
+
+    var deptStats = ViewBag.DeptStats as IEnumerable<IARS.Controllers.HomeController.DeptStat>;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kaizen Committee Dashboard — IARS</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+        :root{--red:#ED1C24;--dark:#0e1118;--tx:#1a1d2e;--muted:#7c8db5;--bg:#f4f6fa;--border:#e4e9f4;--gold:#f59e0b;}
+        body{font-family:'Inter',sans-serif;background:var(--bg);overflow:hidden;height:100vh;display:flex;}
+        #sb{width:300px;min-height:100vh;background:var(--dark);display:flex;flex-direction:column;flex-shrink:0;transition:all .3s;position:relative;z-index:100;}
+        #sb.collapsed{width:80px;}
+        #sbToggle{position:absolute;top:35px;right:-16px;width:32px;height:32px;background:var(--red);border:none;border-radius:50%;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:200;box-shadow:0 4px 14px rgba(237,28,36,.4);}
+        .sb-brand{display:flex;flex-direction:column;align-items:center;padding:32px 18px 24px;border-bottom:1px solid rgba(255,255,255,.05);text-decoration:none;overflow:hidden;}
+        .logo-box{background:white;border-radius:14px;padding:12px 16px;width:100%;max-width:180px;box-shadow:0 6px 16px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;}
+        .logo-box img{width:100%;max-width:150px;object-fit:contain;}
+        .brand-label{margin-top:14px;text-align:center;}
+        .brand-label .bn { color:white; font-weight:900; font-size:1.15rem; letter-spacing:-0.2px; white-space:nowrap; }
+        .brand-label .bt{color:rgba(255,255,255,.32);font-size:.75rem;letter-spacing:1px;text-transform:uppercase;margin-top:4px;white-space:nowrap;}
+        #sb.collapsed .sb-brand{display:none;}
+        .sb-sec{padding:24px 22px 8px;font-size:.72rem;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.2);white-space:nowrap;}
+        #sb.collapsed .sb-sec{opacity:0;height:28px;padding:0;}
+        .sb-nav{list-style:none;padding:4px 12px;flex-grow:1;}
+        .sb-nav a{display:flex;align-items:center;gap:16px;padding:12px 16px;color:rgba(255,255,255,.48);text-decoration:none;border-radius:12px;margin-bottom:6px;transition:all .3s;white-space:nowrap;overflow:hidden;font-size:1.05rem;font-weight:600;}
+        .sb-nav a:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.88);}
+        .sb-nav a.on{background:var(--red);color:white;}
+        .sb-nav a i{font-size:1.3rem;flex-shrink:0;width:24px;text-align:center;}
+        .sb-nav .lbl{overflow:hidden;white-space:nowrap;}
+        #sb.collapsed .sb-nav .lbl{display:none;}
+        .sb-foot{padding:14px 12px;border-top:1px solid rgba(255,255,255,.05);}
+        .sb-foot a{display:flex;align-items:center;gap:16px;padding:12px 16px;border-radius:12px;color:rgba(255,255,255,.38);text-decoration:none;font-size:1.05rem;font-weight:600;transition:all .3s;white-space:nowrap;overflow:hidden;}
+        .sb-foot a:hover{background:rgba(237,28,36,.14);color:var(--red);}
+        .sb-foot a i{font-size:1.3rem;flex-shrink:0;width:24px;text-align:center;}
+        #sb.collapsed .sb-foot .lbl{display:none;}
+        #main{flex-grow:1;display:flex;flex-direction:column;overflow:hidden;}
+        .topbar{height:100px;background:white;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 36px;flex-shrink:0;}
+        .tb-left{display:flex;flex-direction:column;justify-content:center;}
+        .tb-left .sysname{font-size:0.75rem;color:var(--red);font-weight:800;letter-spacing:0.8px;margin:0 0 4px 0;text-transform:uppercase;}
+        .tb-left .ptitle{font-size:1.55rem;font-weight:900;color:var(--tx);letter-spacing:-0.4px;margin:0;}
+        .tb-right{display:flex;align-items:center;justify-content:flex-end;gap:16px;}
+        .user-chip{display:flex;align-items:center;gap:14px;background:#f7f8fc;border:1.5px solid var(--border);border-radius:14px;padding:6px 18px 6px 8px;}
+        .u-avatar{width:46px;height:46px;background:#2563eb;color:white;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1.15rem; letter-spacing:-0.5px; flex-shrink:0;}
+        .u-info { text-align:left; }
+        .u-info .uname { font-weight:800; font-size:1rem; color:var(--tx); line-height:1.2; }
+        .u-info .urole { font-size:0.8rem; color:var(--muted); font-weight:600; }
+        .ca{flex-grow:1;overflow-y:auto;padding:32px 36px;}
+        /* Stats */
+        .stat-row{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:28px;}
+        .stat-card{background:white;border-radius:16px;border:1px solid var(--border);padding:18px 20px;display:flex;align-items:center;gap:14px;transition:transform .2s,box-shadow .2s;}
+        .stat-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.06);}
+        .sc-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;}
+        .sc-val{font-size:1.8rem;font-weight:900;color:var(--tx);line-height:1;}
+        .sc-lbl{font-size:.72rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:3px;}
+        /* Layout */
+        .content-grid{display:grid;grid-template-columns:1fr 320px;gap:24px;}
+        /* Table */
+        .tbl-wrap{background:white;border-radius:18px;border:1px solid var(--border);overflow:hidden;}
+        .tbl-head{display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid var(--border);}
+        .tbl-head h5{font-size:1rem;font-weight:900;color:var(--tx);margin:0;}
+        .tbl-search{display:flex;align-items:center;gap:10px;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:8px 14px;}
+        .tbl-search input{border:none;background:transparent;outline:none;font-family:inherit;font-size:.88rem;color:var(--tx);width:180px;}
+        table{width:100%;border-collapse:collapse;}
+        thead tr{background:#f8fafc;}
+        thead th{padding:12px 18px;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);border-bottom:1px solid var(--border);}
+        tbody tr{transition:background .15s;}
+        tbody tr:hover{background:#f8f9fd;}
+        tbody td{padding:14px 18px;border-bottom:1px solid #f0f3f9;font-size:.88rem;color:var(--tx);vertical-align:middle;}
+        tbody tr:last-child td{border-bottom:none;}
+        .td-title{font-weight:800;color:var(--tx);font-size:.95rem;margin:0 0 3px;}
+        .td-sub{font-size:.78rem;color:var(--muted);}
+        /* Badges */
+        .badge-status{display:inline-flex;align-items:center;gap:5px;border-radius:20px;padding:4px 12px;font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
+        .bs-pending{background:#fff7ed;color:#ea580c;border:1.5px solid #fed7aa;}
+        .bs-review{background:#fef3c7;color:#92400e;border:1.5px solid #fde68a;}
+        .bs-hodok{background:#eff6ff;color:#2563eb;border:1.5px solid #bfdbfe;}
+        .bs-rejected{background:#fff1f2;color:#e11d48;border:1.5px solid #fecdd3;}
+        .bs-final{background:#f0fdf4;color:#15803d;border:1.5px solid #86efac;}
+        .bs-released{background:#ecfdf5;color:#059669;border:1.5px solid #a7f3d0;}
+        .bs-winner{background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border:1.5px solid #f59e0b;}
+        /* Action btns */
+        .act-wrap{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+        .btn-sm-act{border-radius:8px;padding:6px 14px;font-size:.78rem;font-weight:800;border:1.5px solid;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;transition:all .2s;text-decoration:none;}
+        .btn-release{background:#ecfdf5;color:#059669;border-color:#a7f3d0;}
+        .btn-release:hover{background:#d1fae5;}
+        .btn-winner{background:#fef3c7;color:#92400e;border-color:#f59e0b;}
+        .btn-winner:hover{background:#fde68a;}
+        .btn-view-sm{background:#eff6ff;color:#2563eb;border-color:#bfdbfe;}
+        .btn-view-sm:hover{background:#dbeafe;color:#1d4ed8;}
+        /* Right panel */
+        .right-panel{display:flex;flex-direction:column;gap:20px;}
+        .panel-card{background:white;border-radius:18px;border:1px solid var(--border);padding:22px;}
+        .panel-title{font-size:.88rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;}
+        .dept-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+        .dept-name{font-size:.9rem;font-weight:700;color:var(--tx);}
+        .dept-bar-wrap{flex:1;height:8px;background:#f0f3f9;border-radius:10px;margin:0 14px;overflow:hidden;}
+        .dept-bar{height:100%;background:var(--red);border-radius:10px;transition:width .6s ease;}
+        .dept-count{font-size:.88rem;font-weight:800;color:var(--tx);}
+        /* toast */
+        .toast-msg{position:fixed;top:24px;right:24px;z-index:9999;min-width:320px;border-radius:14px;padding:16px 22px;font-weight:700;font-size:.95rem;display:flex;align-items:center;gap:12px;box-shadow:0 8px 30px rgba(0,0,0,.12);animation:slideIn .3s ease;}
+        @@keyframes slideIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+        ::-webkit-scrollbar{width:6px;}
+        ::-webkit-scrollbar-thumb{background:#cfd6e4;border-radius:10px;}
+    </style>
+</head>
+<body>
+
+@if (TempData["Success"] != null)
+{
+    <div class="toast-msg" style="background:#ecfdf5;color:#059669;border:1.5px solid #a7f3d0;" id="toastMsg">
+        <i class="bi bi-check-circle-fill" style="font-size:1.3rem;"></i> @TempData["Success"]
+    </div>
+}
+
+<nav id="sb">
+    <button id="sbToggle" onclick="toggle()"><i class="bi bi-chevron-left ti"></i></button>
+    <a href="/" class="sb-brand">
+        <div class="logo-box"><img src="/images/logo_isuzu.png" alt="Isuzu" asp-append-version="true" /></div>
+        <div class="brand-label">
+            <div class="bn">Kaizen System</div>
+            <div class="bt">Continuous Improvement</div>
+        </div>
+    </a>
+    <ul class="sb-nav">
+        <div class="sb-sec" style="margin-top:10px;">Menu</div>
+        <li><a asp-controller="Home" asp-action="Index" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Index" && ViewContext.RouteData.Values["Controller"]?.ToString() == "Home" ? "on" : "")"><i class="bi bi-grid-1x2-fill"></i><span class="lbl">Dashboard</span></a></li>
+        <li><a asp-controller="Home" asp-action="AllProposals" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AllProposals" ? "on" : "")"><i class="bi bi-list-ul"></i><span class="lbl">All Proposals</span></a></li>
+        <li><a asp-controller="Home" asp-action="Winners" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Winners" ? "on" : "")"><i class="bi bi-trophy-fill"></i><span class="lbl">Best of Month</span></a></li>
+        <li><a asp-controller="Home" asp-action="ProposalHistory" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "ProposalHistory" ? "on" : "")"><i class="bi bi-clock-history"></i><span class="lbl">Proposals History</span></a></li>
+        
+        <li><a asp-controller="Kaizen" asp-action="Create"><i class="bi bi-plus-circle-fill"></i><span class="lbl">Kaizen Generator</span></a></li>
+        <li><a asp-controller="Kaizen" asp-action="Index"><i class="bi bi-clock-history"></i><span class="lbl">My Proposals</span></a></li>
+
+        <li><a asp-controller="Home" asp-action="Profile" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Profile" ? "on" : "")"><i class="bi bi-person-fill"></i><span class="lbl">My Profile</span></a></li>
+    </ul>
+    <div class="sb-foot">
+        <a asp-controller="Home" asp-action="Logout"><i class="bi bi-box-arrow-left"></i><span class="lbl">Sign Out</span></a>
+    </div>
+</nav>
+
+<div id="main">
+    <div class="topbar">
+        <div class="tb-left">
+            <div class="sysname">Intelligent Analysis &amp; Reporting System</div>
+            <div class="ptitle">Kaizen Committee Dashboard</div>
+            <div style="font-size:.85rem;color:var(--muted);font-weight:600;margin-top:2px;">IARS &rsaquo; Community View</div>
+        </div>
+        <div class="tb-right">
+            @await Html.PartialAsync("_NotificationBell")
+
+            <div class="user-chip">
+                <div class="u-avatar">@initial</div>
+                <div class="u-info">
+                    <div class="uname">@userName</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ca">
+        <!-- Stats -->
+        <div class="stat-row">
+            <div class="stat-card">
+                <div class="sc-icon" style="background:#eff6ff;"><i class="bi bi-journal-text" style="color:#2563eb;"></i></div>
+                <div><div class="sc-val">@ViewBag.TotalAll</div><div class="sc-lbl">Total Proposals</div></div>
+            </div>
+            <div class="stat-card">
+                <div class="sc-icon" style="background:#fff7ed;"><i class="bi bi-hourglass-split" style="color:#ea580c;"></i></div>
+                <div><div class="sc-val">@ViewBag.Pending</div><div class="sc-lbl">Pending</div></div>
+            </div>
+            <div class="stat-card">
+                <div class="sc-icon" style="background:#ecfdf5;"><i class="bi bi-patch-check-fill" style="color:#059669;"></i></div>
+                <div><div class="sc-val">@ViewBag.FinalApproved</div><div class="sc-lbl">Approved</div></div>
+            </div>
+            <div class="stat-card">
+                <div class="sc-icon" style="background:#f0fdf4;"><i class="bi bi-broadcast" style="color:#059669;"></i></div>
+                <div><div class="sc-val">@ViewBag.Released</div><div class="sc-lbl">Released</div></div>
+            </div>
+            <div class="stat-card" style="border:1.5px solid #f59e0b;background:linear-gradient(135deg,#fffbeb,#fef3c7);">
+                <div class="sc-icon" style="background:#fde68a;"><i class="bi bi-trophy-fill" style="color:#92400e;"></i></div>
+                <div><div class="sc-val">@ViewBag.Winners</div><div class="sc-lbl">Best of Month 🏆</div></div>
+            </div>
+        </div>
+
+        <!-- Main content grid -->
+        <div class="content-grid">
+            <!-- Analytics Charts Section -->
+            <div style="display:flex; flex-direction:column; gap:24px;">
+                <div class="panel-card">
+                    <div class="panel-title"><i class="bi bi-bar-chart-line-fill me-2" style="color:var(--red);"></i>Department Activity Graph</div>
+                    <div style="padding:20px; height: 250px;">
+                        <canvas id="deptChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="panel-card" style="height:100%;">
+                    <div class="panel-title"><i class="bi bi-graph-up me-2" style="color:var(--red);"></i>Contribution Ranking (Top Submitters)</div>
+                    <div style="padding:20px;">
+                        @{
+                            var ranking = ViewBag.EmployeeRanking as dynamic;
+                        }
+                        @if (ranking != null)
+                        {
+                            foreach (var r in ranking)
+                            {
+                                if (r.Employee == null) continue;
+                                <div style="display:flex; align-items:center; gap:15px; margin-bottom:20px; padding:15px; background:#f8fafc; border-radius:12px; border:1px solid var(--border);">
+                                    <div style="width:40px; height:40px; background:var(--tx); color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800;">
+                                        @(string.IsNullOrEmpty(r.Employee.Name) ? "?" : r.Employee.Name[0].ToString())
+                                    </div>
+                                    <div style="flex:1;">
+                                        <div style="font-weight:800; color:var(--tx);">@(r.Employee.Name ?? "Unknown")</div>
+                                        <div style="font-size:0.75rem; color:var(--muted);">@(r.Employee.Department ?? "N/A")</div>
+                                    </div>
+                                    <div style="text-align:right;">
+                                        <div style="font-size:1.2rem; font-weight:900; color:var(--red);">@r.Count</div>
+                                        <div style="font-size:0.65rem; font-weight:700; color:var(--muted); text-transform:uppercase;">Proposals</div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+
+                <div class="panel-card">
+                    <div class="panel-title"><i class="bi bi-check-all me-2" style="color:var(--red);"></i>Recent Approvals</div>
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        @foreach (var p in all.Where(x => x.Status == "FinalApproved" || x.Status == "Released").Take(5))
+                        {
+                            <div style="padding:12px; border-left:4px solid #059669; background:#f0fdf4; border-radius:0 8px 8px 0;">
+                                <div style="font-weight:700; font-size:0.85rem;">@p.Title</div>
+                                <div style="font-size:0.75rem; color:#059669;">Approved on @p.FinalApprovedAt?.ToString("dd MMM")</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Stats by Dept + Winners -->
+            <div class="right-panel">
+                <!-- Dept Stats -->
+                <div class="panel-card">
+                    <div class="panel-title"><i class="bi bi-bar-chart-fill me-2" style="color:var(--red);"></i>Department Statistics</div>
+                    @if (deptStats != null)
+                    {
+                        var maxCount = 1;
+                        foreach (var d in deptStats) { if (d.Count > maxCount) maxCount = d.Count; }
+                        foreach (var d in deptStats)
+                        {
+                            var pct = all.Any() ? (int)((double)d.Count / all.Count * 100) : 0;
+                            var barPct = (int)((double)d.Count / maxCount * 100);
+                            <div class="dept-row">
+                                <div style="width:80px;"><div class="dept-name" style="font-size:.82rem;">@d.Dept</div><div style="font-size:.72rem;color:var(--muted);">@pct%</div></div>
+                                <div class="dept-bar-wrap"><div class="dept-bar" style="width:@barPct%;"></div></div>
+                                <div class="dept-count">@d.Count</div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div style="text-align:center;color:var(--muted);font-size:.88rem;padding:20px 0;">No data</div>
+                    }
+                </div>
+
+                <!-- Winners -->
+                <div class="panel-card">
+                    <div class="panel-title"><i class="bi bi-trophy-fill me-2" style="color:var(--gold);"></i>Proposal of the Month 🏆</div>
+                    @{var winners = all.Where(p => p.IsWinner).ToList();}
+                    @if (winners.Any())
+                    {
+                        foreach (var w in winners)
+                        {
+                            <div style="padding:12px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border-radius:12px;border:1.5px solid #f59e0b;margin-bottom:10px;">
+                                <div style="font-weight:800;color:#92400e;font-size:.9rem;">🏆 @w.Title</div>
+                                <div style="font-size:.78rem;color:#b45309;margin-top:4px;">@(w.Employee?.Name ?? "—") &bull; @(w.Employee?.Department ?? "—")</div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div style="text-align:center;color:var(--muted);font-size:.88rem;padding:20px 0;">No best proposal selected yet.</div>
+                    }
+                </div>
+
+                <!-- % Submission -->
+                <div class="panel-card">
+                    <div class="panel-title"><i class="bi bi-pie-chart-fill me-2" style="color:#7c3aed;"></i>Approval Rate</div>
+                    @{
+                        var totalAll = all.Count;
+                        var approved = all.Count(p => p.Status == "FinalApproved" || p.Status == "Released");
+                        var pctApproved = totalAll > 0 ? (int)((double)approved / totalAll * 100) : 0;
+                        var pctPending  = totalAll > 0 ? (int)((double)(int)ViewBag.Pending / totalAll * 100) : 0;
+                    }
+                    <div style="margin-bottom:14px;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                            <span style="font-size:.82rem;font-weight:700;color:var(--tx);">Approved</span>
+                            <span style="font-size:.82rem;font-weight:800;color:#059669;">@pctApproved%</span>
+                        </div>
+                        <div style="height:10px;background:#f0f3f9;border-radius:10px;overflow:hidden;">
+                            <div style="width:@pctApproved%;height:100%;background:#059669;border-radius:10px;transition:width .8s;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                            <span style="font-size:.82rem;font-weight:700;color:var(--tx);">In Progress</span>
+                            <span style="font-size:.82rem;font-weight:800;color:#ea580c;">@pctPending%</span>
+                        </div>
+                        <div style="height:10px;background:#f0f3f9;border-radius:10px;overflow:hidden;">
+                            <div style="width:@pctPending%;height:100%;background:#ea580c;border-radius:10px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Management -->
+                <div class="panel-card" style="border:1.5px solid #fee2e2;">
+                    <div class="panel-title" style="color:#b91c1c;"><i class="bi bi-shield-lock-fill me-2"></i>System Management</div>
+                    <p style="font-size:0.75rem; color:var(--muted); margin-bottom:12px;">Dangerous actions below. These cannot be undone.</p>
+                    
+                    <form asp-controller="Kaizen" asp-action="ClearAllHistory" method="post" onsubmit="return confirm('CRITICAL: Are you sure you want to delete ALL proposals and history? This will also delete all uploaded files and cannot be undone.');">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" style="width:100%; padding:10px; background:#fef2f2; color:#b91c1c; border:1.5px solid #fecaa3; border-radius:10px; font-weight:800; font-size:0.8rem; cursor:pointer; transition:all .2s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">
+                            <i class="bi bi-trash3-fill me-2"></i> CLEAR ALL HISTORY
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    function toggle() {
+        const sb = document.getElementById('sb');
+        sb.classList.toggle('collapsed');
+        localStorage.setItem('sbCol', sb.classList.contains('collapsed'));
+    }
+    window.addEventListener('DOMContentLoaded', () => {
+        if (localStorage.getItem('sbCol') === 'true') document.getElementById('sb').classList.add('collapsed');
+        const t = document.getElementById('toastMsg');
+        if (t) setTimeout(() => t.style.opacity = '0', 3500);
+
+        const ctx = document.getElementById('deptChart');
+        if (ctx) {
+            const labels = [];
+            const data = [];
+            @if (ViewBag.DeptStats != null) {
+                foreach (var d in ViewBag.DeptStats) {
+                    <text>
+                    labels.push('@(string.IsNullOrEmpty(d.Dept) ? "Unknown" : d.Dept.Replace("'", "\\'"))');
+                    data.push(@d.Count);
+                    </text>
+                }
+            }
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total Proposals',
+                        data: data,
+                        backgroundColor: '#ED1C24',
+                        borderRadius: 6,
+                        barThickness: 28
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } },
+                        x: { grid: { display: false } }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+    });
+    function filterTable() {
+        const q = document.getElementById('searchBox').value.toLowerCase();
+        document.querySelectorAll('#proposalTable tbody tr').forEach(row => {
+            row.style.display = row.innerText.toLowerCase().includes(q) ? '' : 'none';
+        });
+    }
+</script>
+</body>
+</html>

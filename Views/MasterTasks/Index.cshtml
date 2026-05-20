@@ -1,0 +1,49 @@
+@model IEnumerable<IARS.Models.MasterTask>
+
+@{ 
+    ViewData["Title"] = "Master Task List"; 
+    // // Rujukan: Kita buat satu variable 'counter' untuk ganti @item.No yang asyik keluar '0'
+    int rowCount = 1; 
+}
+
+<h2>Master Task List</h2>
+
+<p>
+    <a asp-action="Create" class="btn btn-success">Create New Task</a>
+</p>
+
+<table class="table table-striped table-hover">
+    <thead class="table-dark">
+        <tr>
+            <th>No</th> @* // Rujukan: Kolum untuk nombor urutan *@
+            <th>Project Name</th>
+            <th>Employee No</th>
+            <th>Plan Start</th>
+            <th>Status</th>
+            <th>Actions</th> @* // Rujukan: Tambah kolum baru untuk butang action *@
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model) {
+        <tr>
+            @* // Rujukan: Guna rowCount++ supaya setiap baris dapat nombor baru (1, 2, 3...) *@
+            <td>@(rowCount++)</td> 
+            
+            <td>@item.ProjectName</td>
+            <td>@item.EmployeeNo</td>
+            <td>@item.PlanStart.ToShortDateString()</td>
+            
+            @* // Rujukan: Tambah Badge sikit supaya Status nampak cantik *@
+            <td>
+                <span class="badge bg-info text-dark">@item.CurrentStatus</span>
+            </td>
+
+            <td>
+                @* // Rujukan: Letak butang Edit & Delete di sini supaya dia tahu ID mana nak diubah *@
+                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-warning">Edit</a>
+                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-danger">Delete</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

@@ -1,0 +1,239 @@
+@model IEnumerable<IARS.Models.KaizenProposal>
+
+@{
+    Layout = null;
+    ViewData["Title"] = "Proposal History - Kaizen Committee";
+    var userName  = Context.Session.GetString("UserName") ?? "Admin";
+    var role      = (Context.Session.GetString("UserRole") ?? "KaizenCommittee").ToUpper();
+    var initial   = userName.Length > 0 ? userName[0].ToString().ToUpper() : "K";
+    var all       = Model?.ToList() ?? new List<IARS.Models.KaizenProposal>();
+    var roleLabel = role switch {
+        "KAIZENCOMMITTEE" => "Kaizen Committee",
+        "HOD"             => "Reviewer",
+        "FINALAPPROVER"   => "Approver",
+        "REVIEWER"        => "Reviewer",
+        "ADMIN"           => "Administrator",
+        _                 => "Employee"
+    };
+
+
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Proposal History — IARS</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+        :root{--red:#ED1C24;--dark:#0e1118;--tx:#1a1d2e;--muted:#7c8db5;--bg:#f4f6fa;--border:#e4e9f4;--gold:#f59e0b;--green:#10b981;}
+        body{font-family:'Inter',sans-serif;background:var(--bg);overflow:hidden;height:100vh;display:flex;}
+        #sb{width:300px;min-height:100vh;background:var(--dark);display:flex;flex-direction:column;flex-shrink:0;transition:all .3s;position:relative;z-index:100;}
+        #sb.collapsed{width:80px;}
+        #sbToggle{position:absolute;top:35px;right:-16px;width:32px;height:32px;background:var(--red);border:none;border-radius:50%;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:200;box-shadow:0 4px 14px rgba(237,28,36,.4);}
+        .sb-brand{display:flex;flex-direction:column;align-items:center;padding:32px 18px 24px;border-bottom:1px solid rgba(255,255,255,.05);text-decoration:none;overflow:hidden;}
+        .logo-box{background:white;border-radius:14px;padding:12px 16px;width:100%;max-width:180px;box-shadow:0 6px 16px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;}
+        .logo-box img{width:100%;max-width:150px;object-fit:contain;}
+        .brand-label{margin-top:14px;text-align:center;}
+        .brand-label .bn { color:white; font-weight:900; font-size:1.15rem; letter-spacing:-0.2px; white-space:nowrap; }
+        .brand-label .bt{color:rgba(255,255,255,.32);font-size:.75rem;letter-spacing:1px;text-transform:uppercase;margin-top:4px;white-space:nowrap;}
+        #sb.collapsed .sb-brand{display:none;}
+        .sb-sec{padding:24px 22px 8px;font-size:.72rem;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.2);white-space:nowrap;}
+        #sb.collapsed .sb-sec{opacity:0;height:28px;padding:0;}
+        .sb-nav{list-style:none;padding:4px 12px;flex-grow:1;}
+        .sb-nav a{display:flex;align-items:center;gap:16px;padding:12px 16px;color:rgba(255,255,255,.48);text-decoration:none;border-radius:12px;margin-bottom:6px;transition:all .3s;white-space:nowrap;overflow:hidden;font-size:1.05rem;font-weight:600;}
+        .sb-nav a:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.88);}
+        .sb-nav a.on{background:var(--red);color:white;}
+        .sb-nav a i{font-size:1.3rem;flex-shrink:0;width:24px;text-align:center;}
+        .sb-nav .lbl{overflow:hidden;white-space:nowrap;}
+        #sb.collapsed .sb-nav .lbl{display:none;}
+        .sb-foot{padding:14px 12px;border-top:1px solid rgba(255,255,255,.05);}
+        .sb-foot a{display:flex;align-items:center;gap:16px;padding:12px 16px;border-radius:12px;color:rgba(255,255,255,.38);text-decoration:none;font-size:1.05rem;font-weight:600;transition:all .3s;white-space:nowrap;overflow:hidden;}
+        .sb-foot a:hover{background:rgba(237,28,36,.14);color:var(--red);}
+        .sb-foot a i{font-size:1.3rem;flex-shrink:0;width:24px;text-align:center;}
+        #sb.collapsed .sb-foot .lbl{display:none;}
+        #main{flex-grow:1;display:flex;flex-direction:column;overflow:hidden;}
+        .topbar{height:100px;background:white;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 36px;flex-shrink:0;}
+        .tb-left{display:flex;flex-direction:column;justify-content:center;}
+        .tb-left .sysname{font-size:0.75rem;color:var(--red);font-weight:800;letter-spacing:0.8px;margin:0 0 4px 0;text-transform:uppercase;}
+        .tb-left .ptitle{font-size:1.55rem;font-weight:900;color:var(--tx);letter-spacing:-0.4px;margin:0;}
+        .tb-right{display:flex;align-items:center;justify-content:flex-end;gap:16px;}
+        .user-chip{display:flex;align-items:center;gap:14px;background:#f7f8fc;border:1.5px solid var(--border);border-radius:14px;padding:6px 18px 6px 8px;}
+        .u-avatar{width:46px;height:46px;background:#2563eb;color:white;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1.15rem; letter-spacing:-0.5px; flex-shrink:0;}
+        .u-info { text-align:left; }
+        .u-info .uname { font-weight:800; font-size:1rem; color:var(--tx); line-height:1.2; }
+        .u-info .urole { font-size:0.8rem; color:var(--muted); font-weight:600; }
+        .ca{flex-grow:1;overflow-y:auto;padding:32px 36px;}
+        
+        .history-card{background:white;border-radius:20px;border:1px solid var(--border);margin-bottom:32px;padding:32px;box-shadow:0 10px 40px rgba(0,0,0,0.03);}
+        .hc-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;}
+        .hc-id{font-size:0.8rem;font-weight:800;color:var(--muted);margin-bottom:4px;display:block;}
+        .hc-title{font-size:1.4rem;font-weight:900;color:var(--tx);letter-spacing:-0.4px;}
+        .hc-sub{font-size:0.9rem;color:var(--muted);margin-top:4px;}
+        .hc-badge{background:#f0fdf4;color:var(--green);font-size:0.75rem;font-weight:800;padding:6px 14px;border-radius:8px;text-transform:uppercase;}
+
+        /* Timeline Design */
+        .timeline{margin-top:20px;padding-left:10px;display:flex;flex-direction:column;gap:30px;position:relative;}
+        .timeline::before{content:'';position:absolute;top:20px;left:29px;bottom:20px;width:2px;background:#e2e8f0;z-index:1;}
+        .tm-item{display:flex;gap:20px;position:relative;z-index:2;}
+        .tm-icon{width:40px;height:40px;border-radius:50%;background:white;border:2.5px solid #e2e8f0;display:flex;align-items:center;justify-content:center;font-size:1.1rem;color:var(--muted);flex-shrink:0;}
+        .tm-content{padding-top:4px;}
+        .tm-name{font-weight:800;color:var(--tx);font-size:1rem;}
+        .tm-desc{font-size:0.9rem;color:var(--muted);margin-top:2px;line-height:1.4;}
+        .tm-time{font-size:0.8rem;color:var(--muted);margin-top:6px;font-weight:500;}
+
+        /* Dynamic Colors */
+        .tm-item.active .tm-icon{border-color:#3b82f6;color:#3b82f6;}
+        .tm-item.review .tm-icon{border-color:#f59e0b;color:#f59e0b;}
+        .tm-item.done .tm-icon{border-color:var(--green);color:var(--green);background:#f0fdf4;}
+        .tm-item.rejected .tm-icon{border-color:#ef4444;color:#ef4444;background:#fef2f2;}
+    </style>
+</head>
+<body>
+
+<nav id="sb">
+    <button id="sbToggle" onclick="toggle()"><i class="bi bi-chevron-left ti"></i></button>
+    <a href="/" class="sb-brand">
+        <div class="logo-box"><img src="/images/logo_isuzu.png" alt="Isuzu" asp-append-version="true" /></div>
+        <div class="brand-label">
+            <div class="bn">Kaizen System</div>
+            <div class="bt">Continuous Improvement</div>
+        </div>
+    </a>
+    <ul class="sb-nav">
+        <div class="sb-sec" style="margin-top:10px;">Menu</div>
+        <li><a asp-controller="Home" asp-action="Index" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Index" && ViewContext.RouteData.Values["Controller"]?.ToString() == "Home" ? "on" : "")"><i class="bi bi-grid-1x2-fill"></i><span class="lbl">Dashboard</span></a></li>
+        <li><a asp-controller="Home" asp-action="AllProposals" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AllProposals" ? "on" : "")"><i class="bi bi-list-ul"></i><span class="lbl">All Proposals</span></a></li>
+        <li><a asp-controller="Home" asp-action="Winners" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Winners" ? "on" : "")"><i class="bi bi-trophy-fill"></i><span class="lbl">Best of Month</span></a></li>
+        <li><a asp-controller="Home" asp-action="ProposalHistory" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "ProposalHistory" ? "on" : "")"><i class="bi bi-clock-history"></i><span class="lbl">Proposals History</span></a></li>
+        
+        <li><a asp-controller="Kaizen" asp-action="Create"><i class="bi bi-plus-circle-fill"></i><span class="lbl">Kaizen Generator</span></a></li>
+        <li><a asp-controller="Kaizen" asp-action="Index"><i class="bi bi-clock-history"></i><span class="lbl">My Proposals</span></a></li>
+
+        <li><a asp-controller="Home" asp-action="Profile" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Profile" ? "on" : "")"><i class="bi bi-person-fill"></i><span class="lbl">My Profile</span></a></li>
+    </ul>
+    <div class="sb-foot">
+        <a asp-controller="Home" asp-action="Logout"><i class="bi bi-box-arrow-left"></i><span class="lbl">Sign Out</span></a>
+    </div>
+</nav>
+
+<div id="main">
+    <div class="topbar">
+        <div class="tb-left">
+            <div class="sysname">Intelligent Analysis &amp; Reporting System</div>
+            <div class="ptitle">Proposal History</div>
+            <div style="font-size:0.9rem;color:var(--muted);font-weight:500;margin-top:2px;">Full audit trail of all proposals you have handled.</div>
+        </div>
+        <div class="tb-right">
+            <div class="user-chip">
+                <div class="u-avatar">@initial</div>
+                <div class="u-info">
+                    <div class="uname">@userName</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ca">
+        <div style="max-width:900px; margin: 0 auto;">
+            @if (role == "ADMIN" || role == "KAIZENCOMMITTEE")
+            {
+                <div style="display:flex; justify-content:flex-end; margin-bottom:20px;">
+                    <form asp-controller="Kaizen" asp-action="ClearAllHistory" method="post" onsubmit="return confirm('DANGER: This will delete ALL proposal records and files forever. Continue?');">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-outline-danger btn-sm" style="font-weight:700; border-radius:8px; padding:8px 16px;">
+                            <i class="bi bi-trash3-fill me-2"></i> Clear All History 
+                        </button>
+                    </form>
+                </div>
+            }
+
+            @if (all.Any())
+            {
+                foreach (var p in all)
+                {
+                    <div class="history-card">
+                        <div class="hc-header">
+                            <div>
+                                <span class="hc-id">P@(p.Id.ToString("D3"))</span>
+                                <div class="hc-title">
+                                    @p.Title @(p.IsWinner ? "⭐" : "")
+                                </div>
+                                <div class="hc-sub">Submitted by @(p.Employee?.Name ?? "Unknown") &middot; @(p.Employee?.Department ?? "N/A")</div>
+                            </div>
+                            <div class="hc-badge">
+                                @(p.Status == "Released" ? "APPROVED BY APPROVER" : p.Status.Replace("HODApproved", "REVIEWED BY REVIEWER").Replace("FinalApproved", "APPROVED BY APPROVER").ToUpper())
+                            </div>
+                        </div>
+
+                        <div class="timeline">
+                            <!-- Step 1: Submission -->
+                            <div class="tm-item done">
+                                <div class="tm-icon"><i class="bi bi-send-fill"></i></div>
+                                <div class="tm-content">
+                                    <div class="tm-name">@(p.Employee?.Name ?? "User")</div>
+                                    <div class="tm-desc">Proposal submitted for review.</div>
+                                    <div class="tm-time">@p.CreatedAt.ToString("MMM dd, yyyy HH:mm")</div>
+                                </div>
+                            </div>
+
+                            <!-- Step 2: Under Review (HOD) -->
+                            @if (p.AssignedHOD != null)
+                            {
+                                <div class="tm-item @(p.HODReviewedAt != null ? (p.Status == "HODRejected" ? "rejected" : "done") : "review")">
+                                    <div class="tm-icon"><i class="bi @(p.HODReviewedAt != null ? "bi-check-circle-fill" : "bi-eye-fill")"></i></div>
+                                    <div class="tm-content">
+                                        <div class="tm-name">@p.AssignedHOD.Name</div>
+                                        <div class="tm-desc">
+                                            @if (p.HODReviewedAt == null) { <span>Under review by Reviewer.</span> }
+                                            else { <span>@(p.Status == "HODRejected" ? "Rejected" : "Approved") by Reviewer. @p.HODRemarks</span> }
+                                        </div>
+                                        @if (p.HODReviewedAt != null) { <div class="tm-time">@p.HODReviewedAt?.ToString("MMM dd, yyyy HH:mm")</div> }
+                                    </div>
+                                </div>
+                            }
+
+                            <!-- Step 3: Approval -->
+                            @if (p.Status == "HODApproved" || p.Status == "FinalApproved" || p.Status == "FinalRejected" || p.Status == "Released")
+                            {
+                                var faName = p.FinalApproverEmployee?.Name ?? "Approver";
+                                <div class="tm-item @(p.FinalApprovedAt != null ? (p.Status == "FinalRejected" ? "rejected" : "done") : "review")">
+                                    <div class="tm-icon"><i class="bi @(p.FinalApprovedAt != null ? "bi-check-circle-fill" : "bi-shield-fill")"></i></div>
+                                    <div class="tm-content">
+                                        <div class="tm-name">@faName</div>
+                                        <div class="tm-desc">
+                                            @if (p.FinalApprovedAt == null) { <span>Pending approval by Approver.</span> }
+                                            else { <span>@(p.Status == "FinalRejected" ? "Rejected" : "Approved") by Approver. @p.FinalRemarks</span> }
+                                        </div>
+                                        @if (p.FinalApprovedAt != null) { <div class="tm-time">@p.FinalApprovedAt?.ToString("MMM dd, yyyy HH:mm")</div> }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div style="text-align:center; padding:100px; color:var(--muted);">No history data found.</div>
+            }
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggle() {
+        const sb = document.getElementById('sb');
+        sb.classList.toggle('collapsed');
+        localStorage.setItem('sbCol', sb.classList.contains('collapsed'));
+    }
+    window.addEventListener('DOMContentLoaded', () => {
+        if (localStorage.getItem('sbCol') === 'true') document.getElementById('sb').classList.add('collapsed');
+    });
+</script>
+</body>
+</html>
