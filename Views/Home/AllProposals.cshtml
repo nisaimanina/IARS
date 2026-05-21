@@ -191,6 +191,7 @@
                         <th>Submitter</th>
                         <th>Approvers</th>
                         <th>Status</th>
+                        <th>Rank</th>
                         <th style="text-align:center;">Actions</th>
                     </tr>
                 </thead>
@@ -225,6 +226,17 @@
                                 </td>
                                 <td style="text-align:center;">
                                     <span class="badge-status @StatusCss(p.Status, p.IsWinner)">@(p.IsWinner ? "🏆 Winner" : StatusLabel(p.Status))</span>
+                                </td>
+                                <td style="text-align:center;">
+                                    @if (!string.IsNullOrEmpty(p.CommitteeRank))
+                                    {
+                                        <span class="badge" style="background:#fef3c7; color:#92400e; border:1.5px solid #fde68a; font-weight:800; font-size:0.85rem; padding:4px 10px; border-radius:6px; display:inline-block;">Rank @p.CommitteeRank</span>
+                                        <div style="font-size:0.75rem; color:var(--muted); font-weight:600; margin-top:4px;">Score: @p.TotalCommitteeScore</div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted" style="font-size:0.75rem; font-style:italic;">—</span>
+                                    }
                                 </td>
                                 <td style="text-align:left;">
                                     <div class="act-wrap" style="flex-direction:column; align-items:stretch; width:130px; margin:0; gap:5px;">

@@ -1,4 +1,5 @@
 @using System.Text.RegularExpressions
+@using Microsoft.AspNetCore.Http
 @model IARS.Models.KaizenProposal
 
 @{
@@ -260,7 +261,21 @@
 <div class="top-nav">
     <div class="nav-logo">IARS <span style="font-weight:300;opacity:0.6;">| Result Report</span></div>
     <div class="nav-actions">
-        <a asp-action="Index" class="btn-action btn-back"><i class="bi bi-arrow-left"></i> History</a>
+        @{
+            var userRole = Context.Session.GetString("UserRole");
+        }
+        @if (userRole == "Admin" || userRole == "KaizenCommittee")
+        {
+            <a asp-controller="Home" asp-action="AllProposals" class="btn-action btn-back"><i class="bi bi-arrow-left"></i> All Proposals</a>
+        }
+        else if (userRole == "HOD" || userRole == "Reviewer" || userRole == "FinalApprover")
+        {
+            <a asp-controller="Home" asp-action="Index" class="btn-action btn-back"><i class="bi bi-arrow-left"></i> Dashboard</a>
+        }
+        else
+        {
+            <a asp-action="Index" class="btn-action btn-back"><i class="bi bi-arrow-left"></i> My Proposals</a>
+        }
         
 
         <div class="divider"></div>

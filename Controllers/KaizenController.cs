@@ -452,7 +452,7 @@ namespace IARS.Controllers
             _context.History.Add(new History { EmployeeID = HttpContext.Session.GetInt32("EmployeeID") ?? 0, Action = "Evaluate", Description = $"Committee evaluated proposal #{id}. Rank: {existing.CommitteeRank}", Timestamp = DateTime.Now });
             await _context.SaveChangesAsync();
             TempData["Success"] = "Proposal evaluated successfully!";
-            return RedirectToAction("Details", new { id = existing.Id });
+            return RedirectToAction("AllProposals", "Home");
         }
     }
 }
