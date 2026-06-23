@@ -129,6 +129,8 @@
             <div style="font-size:0.9rem;color:var(--muted);font-weight:500;margin-top:2px;">Full audit trail of all proposals you have handled.</div>
         </div>
         <div class="tb-right">
+            @await Html.PartialAsync("_NotificationBell")
+
             <div class="user-chip">
                 <div class="u-avatar">@initial</div>
                 <div class="u-info">
@@ -182,17 +184,17 @@
                             </div>
 
                             <!-- Step 2: Under Review (HOD) -->
-                            @if (p.AssignedHOD != null)
+                            @if (p.Reviewer != null)
                             {
-                                <div class="tm-item @(p.HODReviewedAt != null ? (p.Status == "HODRejected" ? "rejected" : "done") : "review")">
-                                    <div class="tm-icon"><i class="bi @(p.HODReviewedAt != null ? "bi-check-circle-fill" : "bi-eye-fill")"></i></div>
+                                <div class="tm-item @(p.ReviewedAt != null ? (p.Status == "HODRejected" ? "rejected" : "done") : "review")">
+                                    <div class="tm-icon"><i class="bi @(p.ReviewedAt != null ? "bi-check-circle-fill" : "bi-eye-fill")"></i></div>
                                     <div class="tm-content">
-                                        <div class="tm-name">@p.AssignedHOD.Name</div>
+                                        <div class="tm-name">@p.Reviewer.Name</div>
                                         <div class="tm-desc">
-                                            @if (p.HODReviewedAt == null) { <span>Under review by Reviewer.</span> }
-                                            else { <span>@(p.Status == "HODRejected" ? "Rejected" : "Approved") by Reviewer. @p.HODRemarks</span> }
+                                            @if (p.ReviewedAt == null) { <span>Under review by Reviewer.</span> }
+                                            else { <span>@(p.Status == "HODRejected" ? "Rejected" : "Approved") by Reviewer. @p.ReviewerComment</span> }
                                         </div>
-                                        @if (p.HODReviewedAt != null) { <div class="tm-time">@p.HODReviewedAt?.ToString("MMM dd, yyyy HH:mm")</div> }
+                                        @if (p.ReviewedAt != null) { <div class="tm-time">@p.ReviewedAt?.ToString("MMM dd, yyyy HH:mm")</div> }
                                     </div>
                                 </div>
                             }
@@ -200,16 +202,16 @@
                             <!-- Step 3: Approval -->
                             @if (p.Status == "HODApproved" || p.Status == "FinalApproved" || p.Status == "FinalRejected" || p.Status == "Released")
                             {
-                                var faName = p.FinalApproverEmployee?.Name ?? "Approver";
-                                <div class="tm-item @(p.FinalApprovedAt != null ? (p.Status == "FinalRejected" ? "rejected" : "done") : "review")">
-                                    <div class="tm-icon"><i class="bi @(p.FinalApprovedAt != null ? "bi-check-circle-fill" : "bi-shield-fill")"></i></div>
+                                var faName = p.FinalApprover?.Name ?? "Approver";
+                                <div class="tm-item @(p.ApprovedAt != null ? (p.Status == "FinalRejected" ? "rejected" : "done") : "review")">
+                                    <div class="tm-icon"><i class="bi @(p.ApprovedAt != null ? "bi-check-circle-fill" : "bi-shield-fill")"></i></div>
                                     <div class="tm-content">
                                         <div class="tm-name">@faName</div>
                                         <div class="tm-desc">
-                                            @if (p.FinalApprovedAt == null) { <span>Pending approval by Approver.</span> }
-                                            else { <span>@(p.Status == "FinalRejected" ? "Rejected" : "Approved") by Approver. @p.FinalRemarks</span> }
+                                            @if (p.ApprovedAt == null) { <span>Pending approval by Approver.</span> }
+                                            else { <span>@(p.Status == "FinalRejected" ? "Rejected" : "Approved") by Approver. @p.ApprovalComment</span> }
                                         </div>
-                                        @if (p.FinalApprovedAt != null) { <div class="tm-time">@p.FinalApprovedAt?.ToString("MMM dd, yyyy HH:mm")</div> }
+                                        @if (p.ApprovedAt != null) { <div class="tm-time">@p.ApprovedAt?.ToString("MMM dd, yyyy HH:mm")</div> }
                                     </div>
                                 </div>
                             }

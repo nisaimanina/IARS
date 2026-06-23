@@ -15,6 +15,19 @@
         "ADMIN"           => "Administrator",
         _                 => "Employee"
     };
+
+    // Group released proposals by Year-Month
+    var grouped = released
+        .GroupBy(p => new { p.CreatedAt.Year, p.CreatedAt.Month })
+        .OrderByDescending(g => g.Key.Year)
+        .ThenByDescending(g => g.Key.Month)
+        .ToList();
+
+    var availableYears = grouped.Select(g => g.Key.Year).Distinct().OrderByDescending(y => y).ToList();
+    var currentYear = DateTime.Now.Year;
+    var currentMonth = DateTime.Now.Month;
+    string[] monthNames = { "", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };
+    string[] monthShort = { "", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 }
 
 <!DOCTYPE html>
@@ -70,6 +83,26 @@
         .u-info .urole { font-size:0.8rem; color:var(--muted); font-weight:600; }
         
         .ca{flex-grow:1;overflow-y:auto;padding:32px 36px;}
+
+        /* ── FILTER BAR ── */
+        .filter-bar{background:white;border-radius:18px;border:1px solid var(--border);padding:20px 28px;margin-bottom:28px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;box-shadow:0 2px 12px rgba(0,0,0,0.02);}
+        .filter-label{font-size:0.75rem;font-weight:900;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);white-space:nowrap;}
+        .year-select{appearance:none;-webkit-appearance:none;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:8px 36px 8px 14px;font-family:inherit;font-size:0.88rem;font-weight:800;color:var(--tx);cursor:pointer;transition:border-color .2s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%237c8db5' viewBox='0 0 16 16'%3E%3Cpath d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;}
+        .year-select:focus{outline:none;border-color:var(--gold);}
+        .month-pills{display:flex;gap:6px;flex-wrap:wrap;flex:1;}
+        .month-pill{padding:7px 16px;border-radius:20px;font-size:0.78rem;font-weight:800;border:1.5px solid var(--border);background:white;color:var(--muted);cursor:pointer;transition:all .2s;font-family:inherit;white-space:nowrap;}
+        .month-pill:hover{border-color:#cbd5e1;color:var(--tx);background:#f8f9fb;}
+        .month-pill.active{background:var(--gold);color:white;border-color:var(--gold);box-shadow:0 3px 12px rgba(245,158,11,0.25);}
+        .month-pill .pill-count{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:9px;background:rgba(0,0,0,0.08);font-size:0.65rem;font-weight:900;padding:0 5px;margin-left:5px;}
+        .month-pill.active .pill-count{background:rgba(255,255,255,0.3);}
+
+        /* ── MONTH SECTION HEADER ── */
+        .month-section{margin-bottom:36px;animation:fadeUp .4s ease both;}
+        .month-header{display:flex;align-items:center;gap:14px;margin-bottom:20px;}
+        .month-header-icon{width:44px;height:44px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:#92400e;}
+        .month-header-text h3{font-size:1.2rem;font-weight:900;color:var(--tx);margin:0;letter-spacing:-0.3px;}
+        .month-header-text span{font-size:0.82rem;color:var(--muted);font-weight:600;}
+        .month-header-line{flex:1;height:1px;background:var(--border);}
         
         .winner-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(340px, 1fr));gap:24px;}
         .winner-card{background:white;border-radius:24px;border:1px solid var(--border);padding:32px;position:relative;transition:all .3s;overflow:hidden;}
@@ -92,9 +125,13 @@
         
         .empty-state{text-align:center;padding:100px;background:white;border-radius:24px;border:1px solid var(--border);}
         .empty-state i{font-size:4rem;color:var(--border);margin-bottom:20px;display:block;}
+
+        .no-match{text-align:center;padding:60px 20px;color:var(--muted);}
+        .no-match i{font-size:3rem;display:block;margin-bottom:14px;opacity:.3;}
         
         .toast-msg{position:fixed;top:24px;right:24px;z-index:9999;min-width:320px;border-radius:14px;padding:16px 22px;font-weight:700;font-size:.95rem;display:flex;align-items:center;gap:12px;box-shadow:0 8px 30px rgba(0,0,0,.12);animation:slideIn .3s ease;}
         @@keyframes slideIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+        @@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
     </style>
 </head>
 <body>
@@ -140,6 +177,8 @@
             <div style="font-size:0.9rem;color:var(--muted);font-weight:500;margin-top:2px;">Select and showcase the most outstanding Kaizen proposals.</div>
         </div>
         <div class="tb-right">
+            @await Html.PartialAsync("_NotificationBell")
+
             <div class="user-chip">
                 <div class="u-avatar">@initial</div>
                 <div class="u-info">
@@ -152,57 +191,116 @@
     <div class="ca">
         @if (released.Any())
         {
-            <div class="winner-grid">
-                @foreach (var p in released)
-                {
-                    <div class="winner-card @(p.IsWinner ? "is-best" : "")">
-                        @if (p.IsWinner)
+            <!-- Filter Bar -->
+            <div class="filter-bar">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <i class="bi bi-funnel-fill" style="color:var(--gold);font-size:1rem;"></i>
+                    <span class="filter-label">Filter</span>
+                </div>
+                <select class="year-select" id="yearSelect" onchange="filterByDate()">
+                    @foreach (var yr in availableYears)
+                    {
+                        if (yr == currentYear)
                         {
-                            <div class="best-label"><i class="bi bi-star-fill"></i> Best of Month</div>
+                            <option value="@yr" selected>@yr</option>
                         }
-                        
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="wc-meta" style="margin:0;">P@(p.Id.ToString("D3")) &bull; @p.CreatedAt.ToString("MMM yyyy")</span>
-                            @if (!string.IsNullOrEmpty(p.CommitteeRank))
+                        else
+                        {
+                            <option value="@yr">@yr</option>
+                        }
+                    }
+
+                </select>
+                <div class="month-pills" id="monthPills">
+                    <button class="month-pill active" data-month="0" onclick="selectMonth(this)">
+                        All
+                    </button>
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        var countForMonth = released.Count(p => p.CreatedAt.Month == m && p.CreatedAt.Year == (availableYears.Contains(currentYear) ? currentYear : availableYears.FirstOrDefault()));
+                        <button class="month-pill" data-month="@m" onclick="selectMonth(this)">
+                            @monthShort[m]
+                            @if (countForMonth > 0)
                             {
-                                <span class="badge" style="background:#fef3c7; color:#92400e; border:1px solid #f59e0b; font-weight:800; font-size:0.75rem; padding:3px 8px; border-radius:6px;">Rank @p.CommitteeRank (@p.TotalCommitteeScore pts)</span>
+                                <span class="pill-count">@countForMonth</span>
                             }
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <!-- Month Sections -->
+            @foreach (var grp in grouped)
+            {
+                var bestCount = grp.Count(p => p.IsWinner);
+                <div class="month-section" data-year="@grp.Key.Year" data-month="@grp.Key.Month">
+                    <div class="month-header">
+                        <div class="month-header-icon"><i class="bi bi-calendar3"></i></div>
+                        <div class="month-header-text">
+                            <h3>@monthNames[grp.Key.Month] @grp.Key.Year</h3>
+                            <span>@grp.Count() proposal(s)@(bestCount > 0 ? $" · {bestCount} Best of Month" : "")</span>
                         </div>
-                        <div class="wc-title">@p.Title</div>
-                        
-                        <div class="wc-user">
-                            <div class="wc-avatar">@(p.Employee?.Name?[0].ToString().ToUpper() ?? "U")</div>
-                            <div>
-                                <div class="wc-name">@(p.Employee?.Name ?? "Unknown")</div>
-                                <div class="wc-dept">@(p.Employee?.Department ?? "General")</div>
-                            </div>
-                        </div>
-                        
-                        <form asp-controller="Kaizen" asp-action="MarkWinner" method="post">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="id" value="@p.Id" />
-                            <input type="hidden" name="source" value="Winners" />
-                            @if (p.IsWinner)
-                            {
-                                <button type="submit" class="btn-star unpick">
-                                    <i class="bi bi-star-fill"></i> Remove from Best
-                                </button>
-                            }
-                            else
-                            {
-                                <button type="submit" class="btn-star pick">
-                                    <i class="bi bi-star"></i> Mark as Best
-                                </button>
-                            }
-                        </form>
-                        
-                        <div style="border-top:1px solid var(--border); margin-top:16px; padding-top:16px;">
-                            <a asp-controller="Kaizen" asp-action="Details" asp-route-id="@p.Id" class="btn-sm-act btn-view-sm w-100" style="justify-content:center; padding:12px; border-radius:12px;" target="_blank">
-                                <i class="bi bi-eye"></i> View Full Proposal
-                            </a>
-                        </div>
+                        <div class="month-header-line"></div>
                     </div>
-                }
+                    <div class="winner-grid">
+                        @foreach (var p in grp.OrderByDescending(x => x.IsWinner).ThenByDescending(x => x.TotalCommitteeScore))
+                        {
+                            <div class="winner-card @(p.IsWinner ? "is-best" : "")">
+                                @if (p.IsWinner)
+                                {
+                                    <div class="best-label"><i class="bi bi-star-fill"></i> Best of Month</div>
+                                }
+                                
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="wc-meta" style="margin:0;">P@(p.Id.ToString("D3")) &bull; @p.CreatedAt.ToString("dd MMM yyyy")</span>
+                                    @if (!string.IsNullOrEmpty(p.CommitteeRank))
+                                    {
+                                        <span class="badge" style="background:#fef3c7; color:#92400e; border:1px solid #f59e0b; font-weight:800; font-size:0.75rem; padding:3px 8px; border-radius:6px;">Rank @p.CommitteeRank (@p.TotalCommitteeScore pts)</span>
+                                    }
+                                </div>
+                                <div class="wc-title">@p.Title</div>
+                                
+                                <div class="wc-user">
+                                    <div class="wc-avatar">@(p.Employee?.Name?[0].ToString().ToUpper() ?? "U")</div>
+                                    <div>
+                                        <div class="wc-name">@(p.Employee?.Name ?? "Unknown")</div>
+                                        <div class="wc-dept">@(p.Employee?.Department ?? "General")</div>
+                                    </div>
+                                </div>
+                                
+                                <form asp-controller="Kaizen" asp-action="MarkWinner" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@p.Id" />
+                                    <input type="hidden" name="source" value="Winners" />
+                                    @if (p.IsWinner)
+                                    {
+                                        <button type="submit" class="btn-star unpick">
+                                            <i class="bi bi-star-fill"></i> Remove from Best
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button type="submit" class="btn-star pick">
+                                            <i class="bi bi-star"></i> Mark as Best
+                                        </button>
+                                    }
+                                </form>
+                                
+                                <div style="border-top:1px solid var(--border); margin-top:16px; padding-top:16px;">
+                                    <a asp-controller="Kaizen" asp-action="Details" asp-route-id="@p.Id" class="btn-sm-act btn-view-sm w-100" style="justify-content:center; padding:12px; border-radius:12px; display:flex; align-items:center; gap:8px; background:#eff6ff; color:#2563eb; border:1.5px solid #bfdbfe; border-radius:12px; font-weight:800; font-size:0.88rem; text-decoration:none; transition:all .2s;" target="_blank">
+                                        <i class="bi bi-eye"></i> View Full Proposal
+                                    </a>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            <div class="no-match" id="noMatch" style="display:none;">
+                <i class="bi bi-search"></i>
+                <div style="font-weight:800;font-size:1.05rem;color:var(--tx);margin-bottom:6px;">No proposals for this period</div>
+                <div>Try selecting a different month or year.</div>
             </div>
         }
         else
@@ -223,11 +321,77 @@
         sb.classList.toggle('collapsed');
         localStorage.setItem('sbCol', sb.classList.contains('collapsed'));
     }
+
+    function selectMonth(btn) {
+        document.querySelectorAll('.month-pill').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        filterByDate();
+    }
+
+    function filterByDate() {
+        const year = parseInt(document.getElementById('yearSelect').value);
+        const activeBtn = document.querySelector('.month-pill.active');
+        const month = parseInt(activeBtn?.dataset.month || 0);
+
+        const sections = document.querySelectorAll('.month-section');
+        let visible = 0;
+
+        sections.forEach(sec => {
+            const sy = parseInt(sec.dataset.year);
+            const sm = parseInt(sec.dataset.month);
+            const show = (sy === year) && (month === 0 || sm === month);
+            sec.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+
+        const noMatch = document.getElementById('noMatch');
+        if (noMatch) noMatch.style.display = visible === 0 ? '' : 'none';
+
+        // Update pill counts for selected year
+        updatePillCounts(year);
+    }
+
+    function updatePillCounts(year) {
+        const sections = document.querySelectorAll('.month-section');
+        const monthCounts = {};
+        sections.forEach(sec => {
+            const sy = parseInt(sec.dataset.year);
+            const sm = parseInt(sec.dataset.month);
+            if (sy === year) {
+                const cards = sec.querySelectorAll('.winner-card').length;
+                monthCounts[sm] = (monthCounts[sm] || 0) + cards;
+            }
+        });
+
+        document.querySelectorAll('.month-pill').forEach(pill => {
+            const m = parseInt(pill.dataset.month);
+            if (m === 0) return; // "All" pill
+            const countEl = pill.querySelector('.pill-count');
+            const count = monthCounts[m] || 0;
+            if (count > 0) {
+                if (countEl) {
+                    countEl.textContent = count;
+                } else {
+                    const span = document.createElement('span');
+                    span.className = 'pill-count';
+                    span.textContent = count;
+                    pill.appendChild(span);
+                }
+            } else {
+                if (countEl) countEl.remove();
+            }
+        });
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
         if (localStorage.getItem('sbCol') === 'true') document.getElementById('sb').classList.add('collapsed');
         const t = document.getElementById('toastMsg');
         if (t) setTimeout(() => t.style.opacity = '0', 3500);
+
+        // Initial filter
+        filterByDate();
     });
 </script>
 </body>
 </html>
+

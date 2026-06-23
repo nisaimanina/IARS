@@ -1,12 +1,13 @@
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @{
-    var bellRole = (Context.Session.GetString("UserRole") ?? "User");
+    var token = Antiforgery.GetAndStoreTokens(Context).RequestToken;
 }
 
 <style>
     .notif-wrap { position:relative; display:inline-block; }
     .notif-btn { width:46px; height:46px; background:#fffbeb; border:1.5px solid #fde68a; border-radius:12px; display:flex; align-items:center; justify-content:center; color:#f59e0b; font-size:1.3rem; cursor:pointer; position:relative; transition:all 0.2s; }
     .notif-wrap:hover .notif-btn { transform:scale(1.05); }
-    .notif-badge { position:absolute; top:-6px; right:-6px; min-width:20px; height:20px; background:#ED1C24; color:white; border:2px solid white; border-radius:10px; font-size:0.65rem; font-weight:900; display:flex; align-items:center; justify-content:center; padding:0 5px; letter-spacing:-0.5px; }
+    .notif-badge { position:absolute; top:-6px; right:-6px; min-width:20px; height:20px; background:#ED1C24; color:white; border:2px solid white; border-radius:10px; font-size:0.65rem; font-weight:900; display:none; align-items:center; justify-content:center; padding:0 5px; letter-spacing:-0.5px; }
     .notif-popup { display:none; position:absolute; top:54px; right:0; width:360px; background:white; border-radius:16px; border:1px solid #e4e9f4; box-shadow:0 16px 48px rgba(0,0,0,0.14); z-index:9999; overflow:hidden; animation:notifSlide 0.2s ease; }
     .notif-wrap:hover .notif-popup { display:block; }
     @@keyframes notifSlide { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
@@ -16,15 +17,15 @@
     .mark-read-btn { font-size:0.72rem; font-weight:800; color:#7c8db5; background:none; border:none; cursor:pointer; padding:4px 8px; border-radius:6px; transition:all 0.2s; }
     .mark-read-btn:hover { color:#ED1C24; background:#fff0f0; }
     .notif-list { max-height:300px; overflow-y:auto; }
-    .notif-item { display:flex; align-items:flex-start; gap:14px; padding:14px 20px; border-bottom:1px solid #f8f9fc; transition:background 0.15s; text-decoration:none; }
-    .notif-item.read { opacity: 0.6; }
+    .notif-item { display:flex; align-items:flex-start; gap:14px; padding:14px 20px; border-bottom:1px solid #f8f9fc; transition:background 0.15s; text-decoration:none; cursor:pointer; }
+    .notif-item.is-read { opacity:0.55; }
     .notif-item:hover { background:#fafbfe; }
     .notif-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0; }
     .notif-title { font-size:0.85rem; font-weight:800; color:#1a1d2e; margin:0 0 3px; }
     .notif-text { font-size:0.75rem; color:#7c8db5; margin:0 0 4px; line-height:1.4; }
     .notif-time { font-size:0.68rem; color:#a0aec0; font-weight:600; display:flex; align-items:center; gap:4px; }
-    .notif-ft { padding:12px 20px; border-top:1px solid #f0f3f9; display:flex; justify-content:center; align-items:center; }
-    .notif-ft a { font-size:0.8rem; font-weight:800; color:#7c8db5; text-decoration:none; transition: color 0.2s; }
+    .notif-ft { padding:12px 20px; border-top:1px solid #f0f3f9; display:flex; justify-content:center; }
+    .notif-ft a { font-size:0.8rem; font-weight:800; color:#7c8db5; text-decoration:none; transition:color 0.2s; }
     .notif-ft a:hover { color:#ED1C24; text-decoration:underline; }
     .notif-list::-webkit-scrollbar { width:4px; }
     .notif-list::-webkit-scrollbar-thumb { background:#dde2ef; border-radius:10px; }
@@ -34,9 +35,9 @@
 </style>
 
 <div class="notif-wrap">
-    <div class="notif-btn">
+    <div class="notif-btn" id="notifBtn">
         <i class="bi bi-bell-fill"></i>
-        <span class="notif-badge" id="notifBadge">0</span>
+        <span class="notif-badge" id="notifBadge"></span>
     </div>
     <div class="notif-popup">
         <div class="notif-hd">
@@ -47,131 +48,134 @@
             <button class="mark-read-btn" id="markAllRead">Mark all as read</button>
         </div>
         <div class="notif-list" id="notifItems">
+            <div class="empty-notif">
+                <i class="bi bi-bell-slash"></i>
+                <p>Loading...</p>
+            </div>
         </div>
-        <div class="notif-ft">
-            <a href="javascript:void(0)" id="clearAllNotifs" style="font-size:0.75rem; font-weight:700;">Clear All Notifications</a>
+        <div class="notif-ft" id="notifFt">
+            <a href="javascript:void(0)" id="clearAllNotifs">Clear All Notifications</a>
         </div>
     </div>
 </div>
 
 <script>
-(function() {
-    const role = '@bellRole';
-    const notifData = {
-        'User': [
-            { icon: 'bi-check-circle-fill', bg: '#ecfdf5', color: '#059669', title: 'Proposal Approved', text: 'Your Kaizen proposal "Office Optimization" has been approved by the reviewer.', time: '2 hours ago' },
-            { icon: 'bi-chat-dots-fill', bg: '#eff6ff', color: '#2563eb', title: 'New Comment', text: 'Reviewer left a comment on your recent submission.', time: '5 hours ago' },
-            { icon: 'bi-lightning-fill', bg: '#fffbeb', color: '#f59e0b', title: 'Tip of the Day', text: 'Add photos to your proposals for better review outcomes!', time: '1 day ago' }
-        ],
-        'HOD': [
-            { icon: 'bi-file-earmark-plus-fill', bg: '#fff7ed', color: '#ea580c', title: 'New Proposal Submitted', text: 'A new proposal from an employee requires your review.', time: '10 mins ago' },
-            { icon: 'bi-exclamation-triangle-fill', bg: '#fff1f2', color: '#e11d48', title: 'Overdue Reminder', text: 'You have proposals waiting for more than 2 days.', time: '1 hour ago' },
-            { icon: 'bi-graph-up-arrow', bg: '#ecfdf5', color: '#059669', title: 'Weekly Summary', text: 'You reviewed 5 proposals this week. Great progress!', time: '3 hours ago' }
-        ],
-        'Reviewer': [
-            { icon: 'bi-file-earmark-plus-fill', bg: '#fff7ed', color: '#ea580c', title: 'New Proposal Submitted', text: 'A new proposal from an employee requires your review.', time: '10 mins ago' },
-            { icon: 'bi-exclamation-triangle-fill', bg: '#fff1f2', color: '#e11d48', title: 'Overdue Reminder', text: 'You have proposals waiting for more than 2 days.', time: '1 hour ago' },
-            { icon: 'bi-graph-up-arrow', bg: '#ecfdf5', color: '#059669', title: 'Weekly Summary', text: 'You reviewed 5 proposals this week. Great progress!', time: '3 hours ago' }
-        ],
-        'FinalApprover': [
-            { icon: 'bi-shield-check', bg: '#f5f3ff', color: '#7c3aed', title: 'Ready for Approval', text: '3 proposals have passed reviewer stage and await your decision.', time: 'Just now' },
-            { icon: 'bi-calendar-event', bg: '#eff6ff', color: '#2563eb', title: 'Monthly Summary', text: 'Your approval statistics for this month are ready to view.', time: '1 day ago' },
-            { icon: 'bi-patch-check-fill', bg: '#ecfdf5', color: '#059669', title: 'Approval Completed', text: 'Proposal #012 has been successfully approved and forwarded.', time: '2 days ago' }
-        ],
-        'KaizenCommittee': [
-            { icon: 'bi-trophy-fill', bg: '#fffbeb', color: '#f59e0b', title: 'Winner Selection Due', text: 'The Best Kaizen for this month has not been selected yet.', time: '30 mins ago' },
-            { icon: 'bi-people-fill', bg: '#ecfdf5', color: '#059669', title: 'New Submissions', text: '4 new proposals were submitted this week across departments.', time: '2 hours ago' },
-            { icon: 'bi-bar-chart-fill', bg: '#eff6ff', color: '#2563eb', title: 'Analytics Updated', text: 'Department performance metrics have been refreshed.', time: '1 day ago' }
-        ],
-        'Admin': [
-            { icon: 'bi-trophy-fill', bg: '#fffbeb', color: '#f59e0b', title: 'Winner Selection Due', text: 'The Best Kaizen for this month has not been selected yet.', time: '30 mins ago' },
-            { icon: 'bi-people-fill', bg: '#ecfdf5', color: '#059669', title: 'New Submissions', text: '4 new proposals were submitted this week across departments.', time: '2 hours ago' },
-            { icon: 'bi-bar-chart-fill', bg: '#eff6ff', color: '#2563eb', title: 'Analytics Updated', text: 'Department performance metrics have been refreshed.', time: '1 day ago' }
-        ]
-    };
-
-    const storageKey_Read = 'iars_notifs_read_' + role;
-    const storageKey_Cleared = 'iars_notifs_cleared_' + role;
-
-    const badge = document.getElementById('notifBadge');
-    const countLabel = document.getElementById('notifCountLabel');
-    const list = document.getElementById('notifItems');
+(function () {
+    const csrfToken = '@token';
+    const badge       = document.getElementById('notifBadge');
+    const countLabel  = document.getElementById('notifCountLabel');
+    const list        = document.getElementById('notifItems');
     const markReadBtn = document.getElementById('markAllRead');
     const clearAllBtn = document.getElementById('clearAllNotifs');
+    const footer      = document.getElementById('notifFt');
 
-    function renderNotifs() {
-        const isCleared = localStorage.getItem(storageKey_Cleared) === 'true';
-        const isRead = localStorage.getItem(storageKey_Read) === 'true';
-        const items = notifData[role] || notifData['User'];
+    function renderEmpty() {
+        list.innerHTML = `
+            <div class="empty-notif">
+                <i class="bi bi-bell-slash"></i>
+                <p>No notifications yet</p>
+            </div>`;
+        if (badge)      { badge.style.display = 'none'; }
+        if (countLabel) { countLabel.textContent = '0 new'; }
+        if (markReadBtn){ markReadBtn.style.display = 'none'; }
+        if (footer)     { footer.style.display = 'none'; }
+    }
 
-        const footer = document.querySelector('.notif-ft');
-        if (isCleared) {
-            if (badge) badge.style.display = 'none';
-            if (countLabel) countLabel.textContent = '0 new';
-            if (list) {
-                list.innerHTML = `
-                    <div class="empty-notif">
-                        <i class="bi bi-bell-slash"></i>
-                        <p>No notifications yet</p>
-                    </div>
-                `;
-            }
-            if (markReadBtn) markReadBtn.style.display = 'none';
-            if (footer) footer.style.display = 'none';
-            return;
-        }
-        if (footer) footer.style.display = 'flex';
+    function renderNotifs(data) {
+        const items      = data.items || [];
+        const unreadCount = data.unreadCount || 0;
 
-        if (isRead) {
-            if (badge) badge.style.display = 'none';
-            if (countLabel) countLabel.textContent = '0 new';
-        } else {
-            if (badge) {
-                badge.textContent = items.length;
+        if (items.length === 0) { renderEmpty(); return; }
+
+        // Show footer & mark-read button
+        if (footer)     { footer.style.display = 'flex'; }
+        if (markReadBtn){ markReadBtn.style.display = unreadCount > 0 ? 'block' : 'none'; }
+
+        // Badge
+        if (badge) {
+            if (unreadCount > 0) {
+                badge.textContent    = unreadCount > 99 ? '99+' : unreadCount;
                 badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
             }
-            if (countLabel) countLabel.textContent = items.length + ' new';
+        }
+        if (countLabel) {
+            countLabel.textContent = unreadCount > 0 ? `${unreadCount} new` : '0 new';
         }
 
-        if (list) {
-            let html = '';
-            items.forEach(n => {
-                html += `
-                    <a href="#" class="notif-item ${isRead ? 'read' : ''}">
-                        <div class="notif-icon" style="background:${n.bg}; color:${n.color};">
-                            <i class="bi ${n.icon}"></i>
-                        </div>
-                        <div style="flex:1; min-width:0;">
-                            <div class="notif-title">${n.title}</div>
-                            <div class="notif-text">${n.text}</div>
-                            <div class="notif-time"><i class="bi bi-clock"></i> ${n.time}</div>
-                        </div>
-                    </a>
-                `;
+        // Items
+        let html = '';
+        items.forEach(n => {
+            const readClass = n.isRead ? 'is-read' : '';
+            const link = n.linkUrl || '#';
+            html += `
+                <a href="${link}" class="notif-item ${readClass}" data-id="${n.id}">
+                    <div class="notif-icon" style="background:${n.iconBg}; color:${n.iconColor};">
+                        <i class="bi ${n.icon}"></i>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                        <div class="notif-title">${escHtml(n.title)}</div>
+                        <div class="notif-text">${escHtml(n.message)}</div>
+                        <div class="notif-time"><i class="bi bi-clock"></i> ${n.time}</div>
+                    </div>
+                </a>`;
+        });
+        list.innerHTML = html;
+
+        // Click each item → mark as read
+        list.querySelectorAll('.notif-item[data-id]').forEach(el => {
+            el.addEventListener('click', function (e) {
+                const id = this.dataset.id;
+                fetch(`/Notification/MarkRead/${id}`, {
+                    method: 'POST',
+                    headers: { 'RequestVerificationToken': csrfToken }
+                }).then(() => loadNotifs());
             });
-            list.innerHTML = html;
-        }
-        if (markReadBtn) markReadBtn.style.display = isRead ? 'none' : 'block';
+        });
     }
 
+    function loadNotifs() {
+        fetch('/Notification/GetUnread')
+            .then(r => r.ok ? r.json() : null)
+            .then(data => { if (data) renderNotifs(data); else renderEmpty(); })
+            .catch(() => renderEmpty());
+    }
+
+    // Mark all read
     if (markReadBtn) {
-        markReadBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            localStorage.setItem(storageKey_Read, 'true');
-            renderNotifs();
+        markReadBtn.addEventListener('click', function (e) {
+            e.preventDefault(); e.stopPropagation();
+            fetch('/Notification/MarkAllRead', {
+                method: 'POST',
+                headers: { 'RequestVerificationToken': csrfToken }
+            }).then(() => loadNotifs());
         });
     }
 
+    // Clear all
     if (clearAllBtn) {
-        clearAllBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            localStorage.setItem(storageKey_Cleared, 'true');
-            renderNotifs();
+        clearAllBtn.addEventListener('click', function (e) {
+            e.preventDefault(); e.stopPropagation();
+            fetch('/Notification/ClearAll', {
+                method: 'POST',
+                headers: { 'RequestVerificationToken': csrfToken }
+            }).then(() => loadNotifs());
         });
     }
 
-    renderNotifs();
+    function escHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    // Initial load
+    loadNotifs();
+
+    // Auto-refresh badge every 30 seconds
+    setInterval(loadNotifs, 30000);
 })();
 </script>

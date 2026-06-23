@@ -83,23 +83,23 @@ namespace IARS.Models
         /// </summary>
         public string Status { get; set; } = "Pending";
 
-        // Level 1 — HOD Review
-        public int? AssignedHODID { get; set; }
+        // Level 1 — Reviewer Review
+        public int? ReviewerID { get; set; }
 
-        [ForeignKey("AssignedHODID")]
-        public virtual Employee? AssignedHOD { get; set; }
+        [ForeignKey("ReviewerID")]
+        public virtual Employee? Reviewer { get; set; }
 
-        public string? HODRemarks { get; set; }
-        public DateTime? HODReviewedAt { get; set; }
+        public string? ReviewerComment { get; set; }
+        public DateTime? ReviewedAt { get; set; }
 
         // Level 2 — Final Approval
-        public int? FinalApproverEmployeeID { get; set; }
+        public int? FinalApproverID { get; set; }
 
-        [ForeignKey("FinalApproverEmployeeID")]
-        public virtual Employee? FinalApproverEmployee { get; set; }
+        [ForeignKey("FinalApproverID")]
+        public virtual Employee? FinalApprover { get; set; }
 
-        public string? FinalRemarks { get; set; }
-        public DateTime? FinalApprovedAt { get; set; }
+        public string? ApprovalComment { get; set; }
+        public DateTime? ApprovedAt { get; set; }
 
         // Kaizen Community
         public bool IsWinner { get; set; } = false;

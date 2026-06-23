@@ -274,13 +274,13 @@
             <div class="section-title mt-4">
                 <i class="bi bi-clock-history" style="color:var(--muted);"></i> Review History
             </div>
-            @foreach (var p in reviewedList.OrderByDescending(x => x.HODReviewedAt).Take(10))
+            @foreach (var p in reviewedList.OrderByDescending(x => x.ReviewedAt).Take(10))
             {
                 <div class="proposal-card" style="opacity:0.85;">
                     <div class="pc-top">
                         <div>
                             <div class="pc-title">@p.Title</div>
-                            <div class="pc-meta"><i class="bi bi-person-fill me-1"></i>@(p.Employee?.Name ?? "Unknown") &bull; @(p.HODReviewedAt?.ToString("dd MMM yyyy") ?? p.CreatedAt.ToString("dd MMM yyyy"))</div>
+                            <div class="pc-meta"><i class="bi bi-person-fill me-1"></i>@(p.Employee?.Name ?? "Unknown") &bull; @(p.ReviewedAt?.ToString("dd MMM yyyy") ?? p.CreatedAt.ToString("dd MMM yyyy"))</div>
                         </div>
                         @{
                             var cls = p.Status switch {
@@ -299,10 +299,16 @@
                         }
                         <span class="badge-status @cls">@lbl</span>
                     </div>
-                    @if (!string.IsNullOrEmpty(p.HODRemarks))
+                    @if (!string.IsNullOrEmpty(p.ReviewerComment))
                     {
                         <div style="font-size:0.84rem;color:var(--muted);padding:8px 12px;background:#f8f9fc;border-radius:8px;margin-top:8px;">
-                            <i class="bi bi-chat-left-text me-1"></i> @p.HODRemarks
+                            <i class="bi bi-chat-left-text me-1"></i> <strong>My Remarks:</strong> @p.ReviewerComment
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(p.ApprovalComment))
+                    {
+                        <div style="font-size:0.84rem;color:#7c3aed;padding:8px 12px;background:#f5f3ff;border:1px solid #ede9fe;border-radius:8px;margin-top:8px;">
+                            <i class="bi bi-chat-left-quote me-1"></i> <strong>Approver Comment (@(p.FinalApprover?.Name ?? "Approver")):</strong> @p.ApprovalComment
                         </div>
                     }
                 </div>

@@ -83,3 +83,6 @@ Thumbs.db
 *~
 .vimrc
 .eslintignore
+
+# Ignore uploaded files (user content)
+wwwroot/uploads/

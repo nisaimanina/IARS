@@ -165,6 +165,8 @@
             <div style="font-size:.85rem;color:var(--muted);font-weight:600;margin-top:2px;">IARS &rsaquo; Administrative View</div>
         </div>
         <div class="tb-right">
+            @await Html.PartialAsync("_NotificationBell")
+
             <div class="user-chip">
                 <div class="u-avatar">@initial</div>
                 <div class="u-info">
@@ -220,8 +222,8 @@
                                 </td>
                                 <td style="text-align:center;">
                                     <div style="display:inline-block; text-align:left;">
-                                        <div class="td-sub">Reviewer: @(p.AssignedHOD?.Name ?? "Pending")</div>
-                                        <div class="td-sub">Approver: @(p.FinalApproverEmployee?.Name ?? "Pending")</div>
+                                        <div class="td-sub">Reviewer: @(p.Reviewer?.Name ?? "Pending")</div>
+                                        <div class="td-sub">Approver: @(p.FinalApprover?.Name ?? "Pending")</div>
                                     </div>
                                 </td>
                                 <td style="text-align:center;">

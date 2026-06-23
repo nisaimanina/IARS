@@ -108,9 +108,11 @@ namespace IARS.Controllers
         {
             var assigned = _context.KaizenProposals
                 .Include(p => p.Employee)
-                .Where(p => p.AssignedHODID == employeeId)
+                .Include(p => p.FinalApprover)
+                .Where(p => p.ReviewerID == employeeId)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToList();
+
 
             ViewBag.PendingReview  = assigned.Count(p => p.Status == "UnderReview");
             ViewBag.ApprovedByMe   = assigned.Count(p => p.Status == "HODApproved" || p.Status == "FinalApproved" || p.Status == "Released");
@@ -123,25 +125,28 @@ namespace IARS.Controllers
         // ── Final Approver Dashboard ─────────────────────────────
         private IActionResult BuildApproverDashboard(int employeeId)
         {
-            // Proposals that passed HOD review — ready for final approval
-            var pendingApproval = _context.KaizenProposals
+            // ALL proposals assigned to this approver (same pattern as Reviewer)
+            var assigned = _context.KaizenProposals
                 .Include(p => p.Employee)
-                .Include(p => p.AssignedHOD)
-                .Where(p => p.Status == "HODApproved")
-                .OrderByDescending(p => p.HODReviewedAt)
+                .Include(p => p.Reviewer)
+                .Where(p => p.FinalApproverID == employeeId)
+                .OrderByDescending(p => p.ReviewedAt)
                 .ToList();
 
-            // Proposals already decided by this approver
-            var myHistory = _context.KaizenProposals
-                .Include(p => p.Employee)
-                .Where(p => p.FinalApproverEmployeeID == employeeId && (p.Status == "FinalApproved" || p.Status == "FinalRejected"))
-                .OrderByDescending(p => p.FinalApprovedAt)
+            // Pending approval (HODApproved status waiting for final approval)
+            var pendingApproval = assigned.Where(p => p.Status == "HODApproved").ToList();
+
+            // History of decisions made
+            var myHistory = assigned
+                .Where(p => p.Status == "FinalApproved" || p.Status == "FinalRejected" || p.Status == "Released")
+                .OrderByDescending(p => p.ApprovedAt)
                 .Take(10)
                 .ToList();
 
-            ViewBag.PendingApproval = pendingApproval.Count;
-            ViewBag.ApprovedByMe    = _context.KaizenProposals.Count(p => p.FinalApproverEmployeeID == employeeId && p.Status == "FinalApproved");
-            ViewBag.RejectedByMe    = _context.KaizenProposals.Count(p => p.FinalApproverEmployeeID == employeeId && p.Status == "FinalRejected");
+            ViewBag.PendingApproval = assigned.Count(p => p.Status == "HODApproved");
+            ViewBag.TotalAssigned   = assigned.Count;
+            ViewBag.ApprovedByMe    = assigned.Count(p => p.Status == "FinalApproved" || p.Status == "Released");
+            ViewBag.RejectedByMe    = assigned.Count(p => p.Status == "FinalRejected");
             ViewBag.MyHistory       = myHistory;
 
             return View("ApproverDashboard", pendingApproval);
@@ -197,8 +202,8 @@ namespace IARS.Controllers
 
             var all = _context.KaizenProposals
                 .Include(p => p.Employee)
-                .Include(p => p.AssignedHOD)
-                .Include(p => p.FinalApproverEmployee)
+                .Include(p => p.Reviewer)
+                .Include(p => p.FinalApprover)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToList();
 
@@ -227,8 +232,8 @@ namespace IARS.Controllers
 
             var all = _context.KaizenProposals
                 .Include(p => p.Employee)
-                .Include(p => p.AssignedHOD)
-                .Include(p => p.FinalApproverEmployee)
+                .Include(p => p.Reviewer)
+                .Include(p => p.FinalApprover)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToList();
 

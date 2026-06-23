@@ -17,7 +17,8 @@ namespace IARS.Services
         public AIService(HttpClient httpClient, IConfiguration configuration)
         {
             _httpClient = httpClient;
-            _apiKey = configuration["Gemini:ApiKey"] ?? "[GCP_API_KEY]";
+            _httpClient.Timeout = TimeSpan.FromMinutes(3);
+            _apiKey = configuration["Gemini:ApiKey"] ?? "";
         }
 
         public async Task<(string situation, string idea, string results, string safety, string quality, string delivery, string cost, string fiveS, string digital, string investment, string vendor)> GenerateProposal(
@@ -45,6 +46,7 @@ namespace IARS.Services
                 : "Identify the most likely impact areas based on the objective.";
 
             var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={_apiKey}";
+
 
             var parts = new List<object>();
             parts.Add(new { text = $@"
@@ -85,13 +87,36 @@ namespace IARS.Services
             if (!string.IsNullOrEmpty(imageBeforePath)) AddImagePart(parts, imageBeforePath, "Before Condition");
             if (!string.IsNullOrEmpty(imageAfterPath)) AddImagePart(parts, imageAfterPath, "After Condition");
 
-            var requestBody = new { contents = new[] { new { parts = parts.ToArray() } } };
+            var requestBody = new { 
+                contents = new[] { new { parts = parts.ToArray() } },
+                generationConfig = new { thinkingConfig = new { thinkingBudget = 0 } }
+            };
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
             try 
             {
                 var response = await _httpClient.PostAsync(url, content);
                 var responseString = await response.Content.ReadAsStringAsync();
+                
+                // Check for HTTP error responses
+                if (!response.IsSuccessStatusCode)
+                {
+                    string errorMsg = $"Gemini API Error ({(int)response.StatusCode}): ";
+                    try
+                    {
+                        using var errorDoc = JsonDocument.Parse(responseString);
+                        if (errorDoc.RootElement.TryGetProperty("error", out var error))
+                        {
+                            if (error.TryGetProperty("message", out var message))
+                            {
+                                errorMsg += message.GetString() ?? "Unknown error";
+                            }
+                        }
+                    }
+                    catch { errorMsg += responseString; }
+                    
+                    return (errorMsg, "Error", "Error", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "0", "None");
+                }
                 
                 using var doc = JsonDocument.Parse(responseString);
                 
@@ -127,7 +152,8 @@ namespace IARS.Services
             }
             catch (Exception ex)
             {
-                return ($"Generation Error: {ex.Message}", "Error", "Error", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "0", "None");
+                Console.WriteLine($"[AIService Exception]: {ex.ToString()}");
+                return ($"Generation Error: {ex.Message} -> {ex.InnerException?.Message}", "Error", "Error", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "0", "None");
             }
         }
 

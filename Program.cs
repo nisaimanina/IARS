@@ -25,6 +25,9 @@ builder.Services.AddHttpClient<AIService>();
 // Daftarkan KaizenService (Gunakan AddScoped supaya satu instance setiap request)
 builder.Services.AddScoped<KaizenService>();
 
+// Daftarkan NotificationService
+builder.Services.AddScoped<NotificationService>();
+
 // Session configuration (Diperlukan untuk EmployeeID login)
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>

@@ -6,30 +6,23 @@
     Layout = null;
     ViewData["Title"] = "KAIZEN REPORT - " + Model.Id;
 
-    int SafeParse(string? val) {
-        if (string.IsNullOrEmpty(val)) return 0;
-        string cleanVal = val.Split('/')[0].Trim();
-        int.TryParse(cleanVal, out int result);
-        return result;
-    }
 
-    int totalScore = 0; // Scoring model will be updated in next phase
 
-    Microsoft.AspNetCore.Html.HtmlString FormatImpact(string? text) {
-        if (string.IsNullOrEmpty(text)) return new Microsoft.AspNetCore.Html.HtmlString("");
-        string formatted = text;
-        string[] labels = { "Safety", "Quality", "Delivery", "Cost", "5S", "Digital", "Satisfaction", "Sustainability", "Engagement", "Social Impact" };
-        foreach(var label in labels) {
-            formatted = Regex.Replace(formatted, $@"((?:^\d+\.\s*)?{label}\s*:)", "<strong>$1</strong>", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-        }
-        return new Microsoft.AspNetCore.Html.HtmlString(formatted);
-    }
+
 
     string GetImpactValue(string? text, string label) {
-        if (string.IsNullOrEmpty(text)) return "";
-        var match = Regex.Match(text, $@"(?:^|\n){label}\s*:\s*(.*?)(?=\n|$)", RegexOptions.IgnoreCase);
-        return match.Success ? match.Groups[1].Value.Trim() : "";
-    }
+    if (string.IsNullOrEmpty(text)) return "";
+    // Pattern matches label followed by ':' handling CRLF or LF line endings
+    var pattern = $@"(?:^|\r?\n){label}\s*:\s*(.*?)(?=\r?\n|$)";
+    var match = Regex.Match(text, pattern, RegexOptions.IgnoreCase);
+    if (match.Success) return match.Groups[1].Value.Trim();
+    // Fallback: label without colon
+    var altPattern = $@"(?:^|\r?\n){label}\s+(.*?)(?=\r?\n|$)";
+    var altMatch = Regex.Match(text, altPattern, RegexOptions.IgnoreCase);
+    if (altMatch.Success) return altMatch.Groups[1].Value.Trim();
+    // Return full trimmed text if specific label not found
+    return text.Trim();
+}
 
     string GetDeptAbbr(string? dept) {
         if (string.IsNullOrEmpty(dept)) return "IHMSB";
@@ -353,9 +346,9 @@
                         @if (Model.Status == "FinalApproved" || Model.Status == "Released")
                         {
                             <div class="mini-stamp">
-                                <div class="stamp-name">@(Model.FinalApproverEmployee?.Name?.Split(' ')[0] ?? "APPROVER")</div>
-                                <div class="stamp-center">@(GetDeptAbbr(Model.FinalApproverEmployee?.Department))<br/>IHMSB</div>
-                                <div class="stamp-date">@Model.FinalApprovedAt?.ToString("dd/MM/yy")</div>
+                                <div class="stamp-name">@(Model.FinalApprover?.Name?.Split(' ')[0] ?? "APPROVER")</div>
+                                <div class="stamp-center">@(GetDeptAbbr(Model.FinalApprover?.Department))<br/>IHMSB</div>
+                                <div class="stamp-date">@Model.ApprovedAt?.ToString("dd/MM/yy")</div>
                             </div>
                         }
                     </td>
@@ -363,9 +356,9 @@
                         @if (Model.Status != "Pending" && Model.Status != "UnderReview")
                         {
                             <div class="mini-stamp" style="@(Model.Status == "HODRejected" ? "border-color:#666;color:#666;" : "")">
-                                <div class="stamp-name">@(Model.AssignedHOD?.Name?.Split(' ')[0] ?? "REVIEWER")</div>
-                                <div class="stamp-center">@(GetDeptAbbr(Model.AssignedHOD?.Department))<br/>IHMSB</div>
-                                <div class="stamp-date">@Model.HODReviewedAt?.ToString("dd/MM/yy")</div>
+                                <div class="stamp-name">@(Model.Reviewer?.Name?.Split(' ')[0] ?? "REVIEWER")</div>
+                                <div class="stamp-center">@(GetDeptAbbr(Model.Reviewer?.Department))<br/>IHMSB</div>
+                                <div class="stamp-date">@Model.ReviewedAt?.ToString("dd/MM/yy")</div>
                             </div>
                         }
                     </td>
@@ -381,8 +374,8 @@
                     <td class="content-col" style="font-weight:800;">@(GetDeptAbbr(Model.Employee?.Department).ToUpper())</td>
                 </tr>
                 <tr class="date-row">
-                    <td>@(Model.FinalApprovedAt?.ToString("dd/MM/yy") ?? "")</td>
-                    <td>@(Model.HODReviewedAt?.ToString("dd/MM/yy") ?? "")</td>
+                    <td>@(Model.ApprovedAt?.ToString("dd/MM/yy") ?? "")</td>
+                    <td>@(Model.ReviewedAt?.ToString("dd/MM/yy") ?? "")</td>
                     <td colspan="2">@(Model.CreatedAt.ToString("dd/MM/yy"))</td>
                 </tr>
             </table>
@@ -447,7 +440,7 @@
         </div>
         <div style="display: flex; align-items: flex-start;">
             <div style="font-weight: 800; font-size: 11px; width: 85px; flex-shrink: 0; margin-top: 4px; display: flex; justify-content: space-between; padding-right: 8px;">
-                <span>PURPOSE</span> <span>:</span>
+                <span>OBJECTIVE</span> <span>:</span>
             </div>
             <div class="form-underline" style="flex-grow: 1;">
                 @Model.Objective

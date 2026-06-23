@@ -17,6 +17,33 @@
     var proposals = Model?.ToList() ?? new List<IARS.Models.KaizenProposal>();
     var total     = proposals.Count;
     var hodList   = ViewBag.HODList as List<IARS.Models.Employee> ?? new List<IARS.Models.Employee>();
+
+    string GetDeptAbbr(string? dept) {
+        if (string.IsNullOrEmpty(dept)) return "IHMSB";
+        string d = dept.Trim();
+        string du = d.ToUpper();
+
+        // Multi-word abbreviation: take first letter of each significant word
+        var words = d.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => w.Length > 1 && !new[]{"AND","OF","THE","FOR","IN","&"}.Contains(w.ToUpper()))
+            .ToArray();
+        if (words.Length >= 2) {
+            string abbr = string.Concat(words.Select(w => char.ToUpper(w[0])));
+            return abbr.Length > 5 ? abbr.Substring(0, 5) : abbr;
+        }
+
+        // Single word fallbacks
+        if (du.Contains("FINANCE")) return "FIN";
+        if (du.Contains("MAINTENANCE")) return "MNT";
+        if (du.Contains("QUALITY")) return "QA";
+        if (du.Contains("HUMAN")) return "HR";
+        if (du.Contains("SAFETY")) return "SHE";
+        if (du.Contains("PROCUREMENT") || du.Contains("PURCHASE")) return "PCH";
+        if (du.Contains("LOGISTIC")) return "LOG";
+        if (du.Contains("INFORMATION")) return "IT";
+        if (d.Length > 4) return du.Substring(0, 3);
+        return du;
+    }
 }
 
 <!DOCTYPE html>
@@ -267,23 +294,21 @@
                             </div>
                         </div>
 
-                        @if (!string.IsNullOrEmpty(item.HODRemarks))
+                        @if (!string.IsNullOrEmpty(item.ReviewerComment))
                         {
                             <div class="comment-box">
                                 <div class="c-hd">Reviewer Comment</div>
-                                <div class="c-txt">@item.HODRemarks</div>
+                                <div class="c-txt">@item.ReviewerComment</div>
                             </div>
                         }
 
-                        @if (!string.IsNullOrEmpty(item.FinalRemarks))
+                        @if (!string.IsNullOrEmpty(item.ApprovalComment))
                         {
                             <div class="comment-box">
                                 <div class="c-hd">Approver Comment</div>
-                                <div class="c-txt">@item.FinalRemarks</div>
+                                <div class="c-txt">@item.ApprovalComment</div>
                             </div>
-                        }
-
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                        }<div style="display:flex; justify-content:space-between; align-items:center;">
                             <a asp-action="Details" asp-route-id="@item.Id" class="btn-vh" target="_blank">
                                 <i class="bi bi-eye"></i> View Details
                             </a>
@@ -337,20 +362,20 @@
             <input type="hidden" name="id" id="assignId" value="" />
             
             <label style="font-size:0.85rem;font-weight:800;color:#444;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:10px;">Select Reviewer</label>
-            <select name="hodId" id="hodSelect" style="width:100%;padding:14px 16px;border:1.5px solid #e0e6f0;border-radius:12px;font-family:inherit;font-size:0.95rem;color:#1a1d2e;background:#fdfdfe;margin-bottom:20px;" required>
+            <select name="hodId" id="hodSelect" style="width:100%;max-width:100%;padding:14px 16px;border:1.5px solid #e0e6f0;border-radius:12px;font-family:inherit;font-size:0.95rem;color:#1a1d2e;background:#fdfdfe;margin-bottom:20px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;" required>
                 <option value="">-- Select --</option>
                 @foreach (var h in (ViewBag.HODList as List<IARS.Models.Employee> ?? new List<IARS.Models.Employee>()))
                 {
-                    <option value="@h.EmployeeID">@h.Name (@h.Role — @h.Department)</option>
+                    <option value="@h.EmployeeID">@h.Name (@(h.Role == "HOD" ? "HOD" : "Reviewer") — @GetDeptAbbr(h.Department))</option>
                 }
             </select>
 
             <label style="font-size:0.85rem;font-weight:800;color:#444;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:10px;">Select Approver</label>
-            <select name="faId" id="faSelect" style="width:100%;padding:14px 16px;border:1.5px solid #e0e6f0;border-radius:12px;font-family:inherit;font-size:0.95rem;color:#1a1d2e;background:#fdfdfe;margin-bottom:20px;" required>
+            <select name="faId" id="faSelect" style="width:100%;max-width:100%;padding:14px 16px;border:1.5px solid #e0e6f0;border-radius:12px;font-family:inherit;font-size:0.95rem;color:#1a1d2e;background:#fdfdfe;margin-bottom:20px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;" required>
                 <option value="">-- Select --</option>
                 @foreach (var f in (ViewBag.FAList as List<IARS.Models.Employee> ?? new List<IARS.Models.Employee>()))
                 {
-                    <option value="@f.EmployeeID">@f.Name (@f.Role)</option>
+                    <option value="@f.EmployeeID">@f.Name (@(f.Role == "FinalApprover" || f.Role == "FINALAPPROVER" ? "Approver" : f.Role))</option>
                 }
             </select>
 

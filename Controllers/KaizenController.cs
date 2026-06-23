@@ -19,11 +19,13 @@ namespace IARS.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly AIService _aiService;
+        private readonly Services.NotificationService _notifService;
 
-        public KaizenController(ApplicationDbContext context, AIService aiService)
+        public KaizenController(ApplicationDbContext context, AIService aiService, Services.NotificationService notifService)
         {
             _context = context;
             _aiService = aiService;
+            _notifService = notifService;
         }
 
         public IActionResult Index()
@@ -33,7 +35,7 @@ namespace IARS.Controllers
 
             var proposals = _context.KaizenProposals
                 .Include(p => p.Employee)
-                .Include(p => p.AssignedHOD)
+                .Include(p => p.Reviewer)
                 .Where(p => p.EmployeeID == employeeId)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToList();
@@ -245,8 +247,8 @@ namespace IARS.Controllers
         {
             var proposal = await _context.KaizenProposals
                 .Include(p => p.Employee)
-                .Include(p => p.AssignedHOD)
-                .Include(p => p.FinalApproverEmployee)
+                .Include(p => p.Reviewer)
+                .Include(p => p.FinalApprover)
                 .FirstOrDefaultAsync(p => p.Id == id);
             if (proposal == null) return NotFound();
             return View("ProposalForm", proposal);
@@ -333,10 +335,22 @@ namespace IARS.Controllers
             var employeeId = HttpContext.Session.GetInt32("EmployeeID");
             var proposal = await _context.KaizenProposals.FindAsync(id);
             if (proposal == null || proposal.EmployeeID != employeeId) return Forbid();
-            proposal.AssignedHODID = hodId;
-            proposal.FinalApproverEmployeeID = faId;
+            proposal.ReviewerID = hodId;
+            proposal.FinalApproverID = faId;
             proposal.Status = "UnderReview";
             await _context.SaveChangesAsync();
+
+            // Notify Reviewer — new proposal awaiting review
+            var submitterName = HttpContext.Session.GetString("UserName") ?? "An employee";
+            await _notifService.SendAsync(
+                hodId,
+                "New Proposal Submitted",
+                $"{submitterName} has submitted a new Kaizen proposal \"{ proposal.Title}\" for your review.",
+                icon: "bi-file-earmark-plus-fill",
+                iconBg: "#fff7ed",
+                iconColor: "#ea580c",
+                linkUrl: $"/Kaizen/Details/{id}");
+
             return RedirectToAction("Index");
         }
 
@@ -344,12 +358,38 @@ namespace IARS.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ReviewApprove(int id, string? remarks)
         {
-            var proposal = await _context.KaizenProposals.FindAsync(id);
+            var proposal = await _context.KaizenProposals
+                .Include(p => p.Employee)
+                .FirstOrDefaultAsync(p => p.Id == id);
             if (proposal == null) return NotFound();
             proposal.Status = "HODApproved";
-            proposal.HODRemarks = remarks;
-            proposal.HODReviewedAt = DateTime.Now;
+            proposal.ReviewerComment = remarks;
+            proposal.ReviewedAt = DateTime.Now;
             await _context.SaveChangesAsync();
+
+            var reviewerName = HttpContext.Session.GetString("UserName") ?? "Reviewer";
+            // Notify Employee — proposal approved by reviewer
+            if (proposal.EmployeeID > 0)
+                await _notifService.SendAsync(
+                    proposal.EmployeeID,
+                    "Proposal Approved by Reviewer",
+                    $"Your proposal \"{proposal.Title}\" has been approved by Reviewer {reviewerName} and forwarded for final approval.",
+                    icon: "bi-check-circle-fill",
+                    iconBg: "#ecfdf5",
+                    iconColor: "#059669",
+                    linkUrl: $"/Kaizen/Details/{id}");
+
+            // Notify Final Approver — proposal ready for decision
+            if (proposal.FinalApproverID.HasValue)
+                await _notifService.SendAsync(
+                    proposal.FinalApproverID.Value,
+                    "Proposal Ready for Final Approval",
+                    $"Proposal \"{proposal.Title}\" submitted by {proposal.Employee?.Name ?? "an employee"} has passed the reviewer stage and is awaiting your approval.",
+                    icon: "bi-shield-check",
+                    iconBg: "#f5f3ff",
+                    iconColor: "#7c3aed",
+                    linkUrl: $"/Kaizen/Details/{id}");
+
             return RedirectToAction("Index", "Home");
         }
 
@@ -360,9 +400,22 @@ namespace IARS.Controllers
             var proposal = await _context.KaizenProposals.FindAsync(id);
             if (proposal == null) return NotFound();
             proposal.Status = "HODRejected";
-            proposal.HODRemarks = remarks;
-            proposal.HODReviewedAt = DateTime.Now;
+            proposal.ReviewerComment = remarks;
+            proposal.ReviewedAt = DateTime.Now;
             await _context.SaveChangesAsync();
+
+            var reviewerName = HttpContext.Session.GetString("UserName") ?? "Reviewer";
+            // Notify Employee — proposal rejected by reviewer
+            if (proposal.EmployeeID > 0)
+                await _notifService.SendAsync(
+                    proposal.EmployeeID,
+                    "Proposal Rejected by Reviewer",
+                    $"Your proposal \"{proposal.Title}\" was rejected by Reviewer {reviewerName}." + (string.IsNullOrEmpty(remarks) ? "" : $" Remarks: {remarks}"),
+                    icon: "bi-x-circle-fill",
+                    iconBg: "#fff1f2",
+                    iconColor: "#e11d48",
+                    linkUrl: $"/Kaizen/Details/{id}");
+
             return RedirectToAction("Index", "Home");
         }
 
@@ -371,10 +424,68 @@ namespace IARS.Controllers
         public async Task<IActionResult> FinalApprove(int id, string? remarks)
         {
             var proposal = await _context.KaizenProposals.FindAsync(id);
-            if (proposal == null) return NotFound();
+
+            if (proposal == null)
+                return NotFound();
+
             proposal.Status = "FinalApproved";
-            proposal.FinalApprovedAt = DateTime.Now;
+            proposal.ApprovalComment = remarks;
+            proposal.ApprovedAt = DateTime.Now;
+
             await _context.SaveChangesAsync();
+
+            var approverName = HttpContext.Session.GetString("UserName") ?? "Approver";
+            var recipients = new List<int>();
+            // Notify Employee
+            if (proposal.EmployeeID > 0) recipients.Add(proposal.EmployeeID);
+            // Notify Reviewer
+            if (proposal.ReviewerID.HasValue) recipients.Add(proposal.ReviewerID.Value);
+
+            await _notifService.SendToManyAsync(
+                recipients,
+                "Proposal Finally Approved ✅",
+                $"Proposal \"{proposal.Title}\" has been approved by Approver {approverName}.",
+                icon: "bi-patch-check-fill",
+                iconBg: "#ecfdf5",
+                iconColor: "#059669",
+                linkUrl: $"/Kaizen/Details/{id}");
+
+            TempData["Success"] = "Proposal approved successfully.";
+
+            return RedirectToAction("Index", "Home");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> FinalReject(int id, string? remarks)
+        {
+            var proposal = await _context.KaizenProposals.FindAsync(id);
+
+            if (proposal == null)
+                return NotFound();
+
+            proposal.Status = "FinalRejected";
+            proposal.ApprovalComment = remarks;
+            proposal.ApprovedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            var approverName = HttpContext.Session.GetString("UserName") ?? "Approver";
+            var recipients = new List<int>();
+            if (proposal.EmployeeID > 0) recipients.Add(proposal.EmployeeID);
+            if (proposal.ReviewerID.HasValue) recipients.Add(proposal.ReviewerID.Value);
+
+            await _notifService.SendToManyAsync(
+                recipients,
+                "Proposal Rejected by Approver",
+                $"Proposal \"{proposal.Title}\" was rejected by Approver {approverName}." + (string.IsNullOrEmpty(remarks) ? "" : $" Remarks: {remarks}"),
+                icon: "bi-x-circle-fill",
+                iconBg: "#fff1f2",
+                iconColor: "#e11d48",
+                linkUrl: $"/Kaizen/Details/{id}");
+
+            TempData["Success"] = "Proposal rejected.";
+
             return RedirectToAction("Index", "Home");
         }
 
@@ -382,11 +493,29 @@ namespace IARS.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Release(int id)
         {
-            var proposal = await _context.KaizenProposals.FindAsync(id);
+            var proposal = await _context.KaizenProposals
+                .Include(p => p.Employee)
+                .FirstOrDefaultAsync(p => p.Id == id);
             if (proposal == null) return NotFound();
             proposal.Status = "Released";
             proposal.ReleasedAt = DateTime.Now;
             await _context.SaveChangesAsync();
+
+            var committeeName = HttpContext.Session.GetString("UserName") ?? "Kaizen Committee";
+            var recipients = new List<int>();
+            if (proposal.EmployeeID > 0) recipients.Add(proposal.EmployeeID);
+            if (proposal.ReviewerID.HasValue) recipients.Add(proposal.ReviewerID.Value);
+            if (proposal.FinalApproverID.HasValue) recipients.Add(proposal.FinalApproverID.Value);
+
+            await _notifService.SendToManyAsync(
+                recipients,
+                "Proposal Released 🎉",
+                $"Proposal \"{proposal.Title}\" by {proposal.Employee?.Name ?? "an employee"} has been officially released by the Kaizen Committee.",
+                icon: "bi-broadcast",
+                iconBg: "#f0fdf4",
+                iconColor: "#059669",
+                linkUrl: $"/Kaizen/Details/{id}");
+
             return RedirectToAction("AllProposals", "Home");
         }
 
@@ -398,6 +527,18 @@ namespace IARS.Controllers
             if (proposal == null) return NotFound();
             proposal.IsWinner = !proposal.IsWinner;
             await _context.SaveChangesAsync();
+
+            // Notify Employee when marked as winner (not when removed)
+            if (proposal.IsWinner && proposal.EmployeeID > 0)
+                await _notifService.SendAsync(
+                    proposal.EmployeeID,
+                    "🏆 Your Proposal is Best of Month!",
+                    $"Congratulations! Your Kaizen proposal \"{proposal.Title}\" has been selected as Best of Month by the Kaizen Committee.",
+                    icon: "bi-trophy-fill",
+                    iconBg: "#fffbeb",
+                    iconColor: "#f59e0b",
+                    linkUrl: $"/Kaizen/Details/{id}");
+
             if (source == "Winners") return RedirectToAction("Winners", "Home");
             return RedirectToAction("AllProposals", "Home");
         }
@@ -451,6 +592,18 @@ namespace IARS.Controllers
             await _context.SaveChangesAsync();
             _context.History.Add(new History { EmployeeID = HttpContext.Session.GetInt32("EmployeeID") ?? 0, Action = "Evaluate", Description = $"Committee evaluated proposal #{id}. Rank: {existing.CommitteeRank}", Timestamp = DateTime.Now });
             await _context.SaveChangesAsync();
+
+            // Notify Employee — proposal has been scored
+            if (existing.EmployeeID > 0)
+                await _notifService.SendAsync(
+                    existing.EmployeeID,
+                    "Proposal Evaluated by Committee",
+                    $"Your proposal \"{existing.Title}\" has been evaluated by the Kaizen Committee. Score: {existing.TotalCommitteeScore} pts (Rank {existing.CommitteeRank}).",
+                    icon: "bi-clipboard-check-fill",
+                    iconBg: "#f5f3ff",
+                    iconColor: "#7c3aed",
+                    linkUrl: $"/Kaizen/Details/{id}");
+
             TempData["Success"] = "Proposal evaluated successfully!";
             return RedirectToAction("AllProposals", "Home");
         }
