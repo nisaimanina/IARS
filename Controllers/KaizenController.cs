@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using IARS.Data;
 using IARS.Models;
 using IARS.Services;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
@@ -440,6 +441,12 @@ namespace IARS.Controllers
             if (proposal.EmployeeID > 0) recipients.Add(proposal.EmployeeID);
             // Notify Reviewer
             if (proposal.ReviewerID.HasValue) recipients.Add(proposal.ReviewerID.Value);
+            // Notify Kaizen Committee members
+            var committeeIds = _context.Employees
+                .Where(e => e.Role == "KaizenCommittee")
+                .Select(e => e.EmployeeID)
+                .ToList();
+            recipients.AddRange(committeeIds);
 
             await _notifService.SendToManyAsync(
                 recipients,

@@ -103,6 +103,21 @@ namespace IARS.Controllers
             return View();  // → Views/Home/Index.cshtml
         }
 
+        // ── POST /Home/ClearMyActivity ───────────────────────────
+        // Deletes only the current user's activity history entries.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ClearMyActivity()
+        {
+            var employeeId = HttpContext.Session.GetInt32("EmployeeID");
+            if (employeeId == null) return Unauthorized();
+
+            var rows = _context.History.Where(h => h.EmployeeID == employeeId);
+            _context.History.RemoveRange(rows);
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
+
         // ── Reviewer Dashboard ─────────────────────────────
         private IActionResult BuildReviewerDashboard(int employeeId)
         {

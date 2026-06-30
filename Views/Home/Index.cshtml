@@ -1,8 +1,10 @@
 @model IARS.Models.DashboardViewModel
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 
 @{
     Layout = null;
     ViewData["Title"] = "Dashboard";
+    var csrfToken = Antiforgery.GetAndStoreTokens(Context).RequestToken;
     var userName = Context.Session.GetString("UserName") ?? "User";
     var role = (Context.Session.GetString("UserRole") ?? "User").ToUpper();
     var roleLabel = role switch {
@@ -139,6 +141,19 @@
         .a-dot.r { background:var(--red); }
         .a-action { font-size:0.92rem; font-weight:700; color:var(--tx); }
         .a-time { font-size:0.8rem; color:var(--muted); margin-top:3px; }
+
+        /* Scrollable activity/notification list */
+        .act-scroll { max-height:280px; overflow-y:auto; }
+        .act-scroll::-webkit-scrollbar { width:5px; }
+        .act-scroll::-webkit-scrollbar-thumb { background:#cfd6e4; border-radius:10px; }
+        .act-scroll::-webkit-scrollbar-track { background:transparent; }
+
+        /* Inline notification action buttons */
+        .inline-notif-btn { display:inline-flex; align-items:center; gap:5px; font-size:0.78rem; font-weight:800; padding:6px 12px; border-radius:9px; border:1.5px solid transparent; cursor:pointer; transition:all .2s; background:#f7f8fc; color:var(--muted); }
+        .inline-notif-btn i { font-size:0.9rem; }
+        .inline-notif-btn.read-all:hover { border-color:#16a34a; background:#f0fdf4; color:#16a34a; }
+        .inline-notif-btn.clear-all:hover { border-color:var(--red); background:var(--red-soft); color:var(--red); }
+        .inline-notif-btn:disabled { opacity:0.45; cursor:not-allowed; }
 
         ::-webkit-scrollbar { width:6px; }
         ::-webkit-scrollbar-thumb { background:#cfd6e4; border-radius:10px; }
@@ -294,24 +309,88 @@
         }
 
         <div class="row g-4">
-            <!-- Left: Hero + Tip -->
-            <div class="col-lg-5 d-flex flex-column gap-4">
-                <div class="hero flex-grow-1">
+            <!-- Left: Hero -->
+            <div class="col-lg-5 d-flex">
+                <div class="hero d-flex flex-column justify-content-center" style="flex:1;">
                     <h2>Launch Your Next Kaizen ✨</h2>
                     <p>Let the AI engine draft a data-driven improvement proposal for you in seconds. Fast, structured, and professional.</p>
                     <a asp-controller="Kaizen" asp-action="Create" class="hero-btn">
                         <i class="bi bi-stars"></i> Start Generating
                     </a>
                 </div>
-                <div class="tip">
-                    <div class="tip-hd"><span>💡</span><b>Kaizen Tip</b></div>
-                    <p>"Small daily improvements compound into extraordinary results. Every Kaizen, no matter how small, drives continuous progress." 🚀</p>
-                </div>
             </div>
 
-            <!-- Middle: Quick Actions -->
-            <div class="col-lg-4">
-                <div class="qa-card">
+            <!-- Right: Recent Notifications (left) + Recent Activity (right) -->
+            <div class="col-lg-7">
+                <div class="row g-4 h-100">
+                    <!-- Recent Notifications -->
+                    <div class="col-md-6 d-flex">
+                        <div class="act-card" style="flex:1;">
+                            <div class="act-hd">
+                                <h5>Recent Notifications</h5>
+                                <div style="display:flex; gap:6px;">
+                                    <button type="button" id="inlineNotifReadAll" class="inline-notif-btn read-all" title="Mark all notifications as read">
+                                        <i class="bi bi-check2-all"></i> Read All
+                                    </button>
+                                    <button type="button" id="inlineNotifClearAll" class="inline-notif-btn clear-all" title="Delete all notifications">
+                                        <i class="bi bi-trash3"></i> Clear All
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="notifItemsInline">
+                                <div class="act-scroll">
+                                    <div style="text-align:center;padding:50px 20px;color:var(--muted);font-size:0.9rem;">
+                                        <i class="bi bi-bell-slash d-block mb-3" style="font-size:2.5rem;opacity:.2;"></i>Loading notifications...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Recent Activity -->
+                    <div class="col-md-6 d-flex">
+                        <div class="act-card" style="flex:1;">
+                            <div class="act-hd">
+                                <h5>Recent Activity</h5>
+                                <button type="button" id="inlineActClearAll" class="inline-notif-btn clear-all" title="Clear all activity history">
+                                    <i class="bi bi-trash3"></i> Clear All
+                                </button>
+                            </div>
+                            @if (ViewBag.RecentActivity != null && ((List<IARS.Models.History>)ViewBag.RecentActivity).Any())
+                            {
+                                <div class="act-scroll">
+                                @foreach (var activity in (List<IARS.Models.History>)ViewBag.RecentActivity)
+                                {
+                                    var dotClass = activity.Action.Contains("Approved") ? "success-dot" : 
+                                                  activity.Action.Contains("Rejected") ? "danger-dot" : 
+                                                  activity.Action.Contains("Submit")   ? "info-dot" : "r";
+                                    <div class="act-item">
+                                        <div class="a-dot @dotClass"></div>
+                                        <div>
+                                            <div class="a-action">@activity.Action</div>
+                                            <div class="a-time">@activity.Timestamp.ToString("dd MMM, HH:mm")</div>
+                                        </div>
+                                    </div>
+                                }
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="act-scroll">
+                                    <div style="text-align:center;padding:50px 20px;color:var(--muted);font-size:0.9rem;">
+                                        <i class="bi bi-inbox d-block mb-3" style="font-size:2.5rem;opacity:.2;"></i>No activity yet.
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Second Row: Quick Actions (left) + Kaizen Tip (right) -->
+        <div class="row g-4 mt-0">
+            <div class="col-lg-6 d-flex">
+                <div class="qa-card d-flex flex-column justify-content-center" style="flex:1;">
                     <h5>⚡ Quick Actions</h5>
                     <a asp-controller="Kaizen" asp-action="Create" class="qa-btn">
                         <div class="qa-icon" style="background:#fff0f0;"><i class="bi bi-plus-circle-fill" style="color:var(--red);"></i></div>
@@ -327,39 +406,94 @@
                     </a>
                 </div>
             </div>
-
-            <!-- Right: Activity -->
-            <div class="col-lg-3">
-                <div class="act-card">
-                    <div class="act-hd">
-                        <h5>Recent Activity</h5>
-                        <a asp-controller="Kaizen" asp-action="Index" style="font-size:0.85rem;color:var(--red);text-decoration:none;font-weight:800;">All</a>
-                    </div>
-                    @if (ViewBag.RecentActivity != null && ((List<IARS.Models.History>)ViewBag.RecentActivity).Any())
-                    {
-                        @foreach (var activity in (List<IARS.Models.History>)ViewBag.RecentActivity)
-                        {
-                            var dotClass = activity.Action.Contains("Approved") ? "success-dot" : 
-                                          activity.Action.Contains("Rejected") ? "danger-dot" : 
-                                          activity.Action.Contains("Submit")   ? "info-dot" : "r";
-                            <div class="act-item">
-                                <div class="a-dot @dotClass"></div>
-                                <div>
-                                    <div class="a-action">@activity.Action</div>
-                                    <div class="a-time">@activity.Timestamp.ToString("dd MMM, HH:mm")</div>
-                                </div>
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <div style="text-align:center;padding:50px 20px;color:var(--muted);font-size:0.9rem;">
-                            <i class="bi bi-inbox d-block mb-3" style="font-size:2.5rem;opacity:.2;"></i>No activity yet.
-                        </div>
-                    }
+            <div class="col-lg-6 d-flex">
+                <div class="tip d-flex flex-column justify-content-center" style="flex:1;">
+                    <div class="tip-hd"><span>💡</span><b>Kaizen Tip</b></div>
+                    <p>"Small daily improvements compound into extraordinary results. Every Kaizen, no matter how small, drives continuous progress." 🚀</p>
                 </div>
             </div>
         </div>
+
+        <script>
+            (function(){
+                const csrfToken = '@csrfToken';
+                const readAllBtn   = document.getElementById('inlineNotifReadAll');
+                const clearAllBtn  = document.getElementById('inlineNotifClearAll');
+                const actClearBtn  = document.getElementById('inlineActClearAll');
+
+                function renderNotifsInline(data){
+                    const list = document.getElementById('notifItemsInline');
+                    const items = data.items || [];
+                    if(items.length===0){
+                        list.innerHTML = `<div class="act-scroll"><div style="text-align:center;padding:50px 20px;color:var(--muted);font-size:0.9rem;">
+                            <i class="bi bi-bell-slash d-block mb-3" style="font-size:2.5rem;opacity:.2;"></i>No notifications yet.
+                        </div></div>`;
+                        if(readAllBtn)  readAllBtn.disabled  = true;
+                        if(clearAllBtn) clearAllBtn.disabled = true;
+                        return;
+                    }
+                    if(readAllBtn)  readAllBtn.disabled  = !(data.unreadCount > 0);
+                    if(clearAllBtn) clearAllBtn.disabled = false;
+                    let html='<div class="act-scroll">';
+                    items.forEach(n=>{
+                        const readClass = n.isRead ? 'opacity:0.55;' : '';
+                        const link = n.linkUrl || '#';
+                        html+=`
+                            <a href="${link}" class="act-item" data-id="${n.id}" style="text-decoration:none;${readClass}">
+                                <div class="a-dot" style="background:${n.iconColor || '#dde2ef'};"></div>
+                                <div>
+                                    <div class="a-action">${n.title}</div>
+                                    <div class="a-time">${n.message}</div>
+                                    <div class="a-time"><i class="bi bi-clock"></i> ${n.time}</div>
+                                </div>
+                            </a>`;
+                    });
+                    html+='</div>';
+                    list.innerHTML = html;
+                }
+                function loadInline(){
+                    fetch('/Notification/GetUnread')
+                        .then(r=>r.ok?r.json():null)
+                        .then(data=>{ if(data) renderNotifsInline(data); else renderNotifsInline({items:[]}); })
+                        .catch(()=>renderNotifsInline({items:[]}));
+                }
+                loadInline();
+                setInterval(loadInline,30000);
+
+                // Read All → mark every notification as read (keeps them visible)
+                if(readAllBtn){
+                    readAllBtn.addEventListener('click', function(){
+                        this.disabled = true;
+                        fetch('/Notification/MarkAllRead', {
+                            method:'POST',
+                            headers:{ 'RequestVerificationToken': csrfToken }
+                        }).then(()=>loadInline()).catch(()=>{ this.disabled = false; });
+                    });
+                }
+                // Clear All → permanently delete all notifications
+                if(clearAllBtn){
+                    clearAllBtn.addEventListener('click', function(){
+                        this.disabled = true;
+                        fetch('/Notification/ClearAll', {
+                            method:'POST',
+                            headers:{ 'RequestVerificationToken': csrfToken }
+                        }).then(()=>loadInline()).catch(()=>{ this.disabled = false; });
+                    });
+                }
+                // Clear All Activity → delete current user's activity history, then reload page
+                if(actClearBtn){
+                    actClearBtn.addEventListener('click', function(){
+                        if(!confirm('Clear all your activity history? This cannot be undone.')) return;
+                        this.disabled = true;
+                        fetch('/Home/ClearMyActivity', {
+                            method:'POST',
+                            headers:{ 'RequestVerificationToken': csrfToken }
+                        }).then(r=>{ if(r.ok) location.reload(); else { this.disabled = false; alert('Failed to clear activity.'); } })
+                          .catch(()=>{ this.disabled = false; });
+                    });
+                }
+            })();
+        </script>
 
         <style>
             .success-dot { background:#16a34a !important; box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2); }

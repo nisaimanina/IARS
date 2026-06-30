@@ -53,7 +53,6 @@ artifacts/
 
 # Application
 appsettings.*.json
-!appsettings.Development.json
 !appsettings.json
 
 # OS files
@@ -86,3 +85,8 @@ Thumbs.db
 
 # Ignore uploaded files (user content)
 wwwroot/uploads/
+
+appsettings.Development.json
+bin/
+obj/
+.vs/
